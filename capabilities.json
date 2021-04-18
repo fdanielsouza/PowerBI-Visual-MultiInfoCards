@@ -1,0 +1,65 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Title",
+            "name": "title",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Informations",
+            "name": "informations",
+            "kind": "Measure"
+        }
+    ],
+    "objects": {
+        "cards": {
+            "displayName": "Card Properties",
+            "properties": {
+                "backgroundColor": {
+                    "displayName": "Background Color",
+                    "description": "The color in cards backgrounds",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "conditions": [
+                { 
+                    "title": { 
+                        "max": 1
+                    },
+                    "informations": {
+                        "max": 4
+                    }
+                }
+            ],
+            "categorical": {
+                "categories": {
+                    "for": {
+                        "in": "title"
+                    },
+                    "dataReductionAlgorithm": {
+                        "top": {}
+                    }
+                },
+                "values": {
+                    "select": [
+                        {
+                            "bind": {
+                                "to": "informations"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
