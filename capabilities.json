@@ -13,17 +13,124 @@
     ],
     "objects": {
         "cards": {
-            "displayName": "Card Properties",
+            "displayName": "Cards Properties",
             "properties": {
                 "backgroundColor": {
                     "displayName": "Background Color",
-                    "description": "The color in cards backgrounds",
                     "type": {
                         "fill": {
                             "solid": {
                                 "color": true
                             }
                         }
+                    }
+                },
+                "cardHeight": {
+                    "displayName": "Card Height",
+                    "description": "Total width of the card (between 150 and 800)",
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "cardWidth": {
+                    "displayName": "Card Width",
+                    "description": "Total width of the card (between 150 and 800)",
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        },
+        "cardsTitles": {
+            "displayName": "Cards Titles Properties",
+            "properties": {
+                "fontSize": {
+                    "displayName": "Text Size",
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                },
+                "fontFamily": {
+                    "displayName": "Font family",
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "fontColor": {
+                    "displayName": "Font Color",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        },"cardsInformations": {
+            "displayName": "Cards Informations Properties",
+            "properties": {
+                "infoNamesFontSize": {
+                    "displayName": "Information Name Text Size",
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                },
+                "infoNamesFontFamily": {
+                    "displayName": "Information Name Font family",
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "infoNamesFontColor": {
+                    "displayName": "Information Name Font Color",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "infoValuesFontSize": {
+                    "displayName": "Information Value Text Size",
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                },
+                "infoValuesFontFamily": {
+                    "displayName": "Font family",
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "infoValuesFontColor": {
+                    "displayName": "Info Value Font Color",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "spaceBetweenInformations": {
+                    "displayName": "Info Spacing",
+                    "description": "The spacing between each information field (max value is 600)",
+                    "type": {
+                        "numeric": true
                     }
                 }
             }

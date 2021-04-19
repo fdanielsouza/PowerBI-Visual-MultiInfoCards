@@ -25,6 +25,8 @@
 */
 "use strict";
 
+import { textMeasurementService, interfaces } from "powerbi-visuals-utils-formattingutils";
+import TextProperties = interfaces.TextProperties;
 import { VisualSettings } from "./settings";
 import "core-js/stable";
 import "./../style/visual.less";
@@ -40,15 +42,14 @@ import DataView = powerbi.DataView;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import * as d3 from "d3";
 import { dataViewObject } from "powerbi-visuals-utils-dataviewutils";
+import { style } from "d3";
+
 type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
 
 export class Visual implements IVisual {
     private visualSettings: VisualSettings;
     private host: IVisualHost;
     private svg: Selection<SVGElement>;
-    private g: Selection<SVGElement>;
-    private showAllDataPoints: boolean;
- 
 
     constructor(options: VisualConstructorOptions) {
         options.element.style.overflowY = 'auto';
@@ -64,16 +65,25 @@ export class Visual implements IVisual {
         this.svg.selectAll('.title').remove();
 
         let dataView: DataView = options.dataViews[0];
+        let titleValues = dataView.categorical.categories[0].values;
+        let infoValues = dataView.categorical.values;
+
         this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
+
+        // Fonts and text properties
+        let titlesFontSize = this.visualSettings.cardsTitles.fontSize + "pt";
+        let titlesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsTitles.fontFamily, titlesFontSize);
+        let infoNamesFontSize = this.visualSettings.cardsInformations.infoNamesFontSize + "pt";
+        let infoNamesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsInformations.infoNamesFontFamily, infoNamesFontSize);
+        let infoValuesFontSize = this.visualSettings.cardsInformations.infoValuesFontSize + "pt";
+        let infoValuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsInformations.infoValuesFontFamily, infoValuesFontSize);
         
+        // Cards and texts attributes and properties
         let containerHeight = options.viewport.height;
         let containerWidth = options.viewport.width;
-        let cardHeight = 320;
-        let cardWidth = 200;
-
-        let titleValues = dataView.categorical.categories[0].values;
-        let infoValues = dataView.categorical.values[0].values;
-
+        let cardHeight = this.visualSettings.cards.cardHeight;
+        let cardWidth = this.visualSettings.cards.cardWidth;
+        
         this.svg
             .attr('height', Visual.calculateTotalSVGHeight(titleValues.length, cardHeight, cardWidth, containerWidth))
             .attr('width', containerWidth)
@@ -101,13 +111,93 @@ export class Visual implements IVisual {
             .enter()
             .append('text')
             .classed('title', true)
-            .attr('y', 10)
+            .attr('y', titlesFontHeight)
             .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
-            .style('fill', 'white')
-            .text((title: string) => title);
+            .style('font-size', titlesFontSize)
+            .style('font-family', this.visualSettings.cardsTitles.fontFamily)
+            .style('fill', this.visualSettings.cardsTitles.fontColor)
+            .text((title: string) => {
+                return Visual.fitTextInsideCard(
+                    title, 
+                    this.visualSettings.cardsTitles.fontFamily, 
+                    titlesFontSize, 
+                    cardWidth
+                )
+            });
 
 
 
+        
+        // Each field of information values will be rendered over the cards
+        infoValues.forEach((infoValue: powerbi.DataViewValueColumn, index: number) => {
+            this.svg.selectAll('.info' + index).remove();
+            /**
+             *  Calculate height for each block of information texts, so it can control the minimum  
+             *  spacing between blocks,also recording the totals in the DataViewValueColumn object 
+             *  will let the card total height to be correctly calculated
+             * 
+             **/ 
+            let infoLongestValue = infoValue.values.reduce((c: string, n: string) => c.length > n.length ? c : n);
+            let infoLongestHeight = Visual.calculateMultiLineTextHeight(
+                infoLongestValue.toString(), 
+                this.visualSettings.cardsInformations.infoValuesFontFamily, 
+                infoValuesFontSize, 
+                cardWidth,
+                infoValuesFontHeight
+            );
+            
+            infoValue["infoTotalSpacing"] = d3.min([d3.max([infoNamesFontHeight + infoLongestHeight, this.visualSettings.cardsInformations.spaceBetweenInformations]), 600]);            
+            infoValue["cumulativeTotalSpacing"] = infoValues.slice(0, index + 1)
+                .map((i: powerbi.DataViewValueColumn) => i["infoTotalSpacing"])
+                .reduce((c: number, n: number) => c + n);
+
+
+
+            let infos = this.svg
+                .selectAll('.info' + index)
+                .data(infoValue.values)
+                .enter()
+            
+            infos
+                .append('text')
+                .classed('info' + index, true)
+                .attr('y', (titlesFontHeight * 2.5) + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
+                .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
+                .style('font-size', infoNamesFontSize)
+                .style('font-family', this.visualSettings.cardsInformations.infoNamesFontFamily)
+                .style('fill', this.visualSettings.cardsInformations.infoNamesFontColor)
+                .text(
+                    Visual.fitTextInsideCard(
+                        infoValue.source.displayName, 
+                        this.visualSettings.cardsInformations.infoNamesFontFamily, 
+                        infoNamesFontSize, 
+                        cardWidth
+                    )
+                );
+
+            infos
+                .append('text')
+                .classed('info' + index, true)
+                .attr('y', (titlesFontHeight * 2.5) + infoNamesFontHeight + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
+                .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
+                .style('font-size', infoValuesFontSize)
+                .style('font-family', this.visualSettings.cardsInformations.infoValuesFontFamily)
+                .style('fill', this.visualSettings.cardsInformations.infoValuesFontColor)
+                .html((value: any) => {
+                    return Visual.fitMultiLineLongText(
+                        value.toString(), 
+                        this.visualSettings.cardsInformations.infoValuesFontFamily, 
+                        infoValuesFontSize, 
+                        cardWidth,
+                        infoValuesFontHeight
+                    )
+                });
+
+                infos
+                    .exit()
+                    .remove();                   
+        });
+            
 
         cards
             .exit()
@@ -123,6 +213,11 @@ export class Visual implements IVisual {
         return VisualSettings.enumerateObjectInstances(settings, options);
     }
 
+
+    public static calculateCardHeight(totalElementsHeight: number): number {
+        return totalElementsHeight + 20
+    }
+
     public static calculateTotalSVGHeight(dataLength: number, cardHeight: number, cardWidth: number, containerWidth: number): number {
         let totalHeight: number = Math.ceil(dataLength / Math.floor(containerWidth / cardWidth)) * cardHeight;
 
@@ -136,15 +231,57 @@ export class Visual implements IVisual {
 
         return 'translate('+ x +', '+ y +')';
     }
-}
 
-interface TextProperties {
-    text?: string;
-    fontFamily: string;
-    fontSize: string;
-    fontWeight?: string;
-    fontStyle?: string;
-    fontVariant?: string;
-    whiteSpace?: string;
+    public static fitTextInsideCard(text: string, fontFamily: string, fontSize: string, cardWidth: number): string {
+        let textProperties: TextProperties = {
+            text: text,
+            fontFamily: fontFamily,
+            fontSize: fontSize
+        };
+
+        return textMeasurementService.getTailoredTextOrDefault(textProperties, cardWidth);
+    }
+
+    public static fitMultiLineLongText(text: string, fontFamily: string, fontSize: string, cardWidth: number, fontHeight: number): string {
+        let textProperties: TextProperties = {
+            text: text,
+            fontFamily: fontFamily,
+            fontSize: fontSize
+        };
+
+        let textWidth: number = textMeasurementService.measureSvgTextWidth(textProperties);
+        let textLength: number = text.length;
+        let maxCharsPerLine: number = Math.floor(textLength * (cardWidth / textWidth)) - 1;
+        let splittedText: string[] = text.match(new RegExp('.{1,' + maxCharsPerLine + '}', 'g'));
+        let multiLineHtmlText: string = '<tspan>' + splittedText[0] + '</tspan>';
+        
+        splittedText.slice(1).forEach((line: string) => {
+            multiLineHtmlText += '<tspan x = 0, dy=' + fontHeight + '>' + line + '</tspan>'
+        });
+
+        return multiLineHtmlText;
+    }
+
+    public static calculateCardTextHeight(text: string, fontFamily: string, fontSize: string): number {
+        let textProperties: TextProperties = {
+            text: text,
+            fontFamily: fontFamily,
+            fontSize: fontSize
+        };
+
+        return textMeasurementService.measureSvgTextHeight(textProperties);
+    }
+
+    public static calculateMultiLineTextHeight(text: string, fontFamily: string, fontSize: string, cardWidth: number, fontHeight: number): number {
+        let textProperties: TextProperties = {
+            text: text,
+            fontFamily: fontFamily,
+            fontSize: fontSize
+        };
+        let textWidth: number = textMeasurementService.measureSvgTextWidth(textProperties);
+        let totalTextHeight: number = Math.ceil(textWidth / cardWidth) * fontHeight;
+
+        return totalTextHeight;
+    }
 }
 

@@ -31,10 +31,42 @@ import DataViewObjectsParser = dataViewObjectsParser.DataViewObjectsParser;
 
 export class VisualSettings extends DataViewObjectsParser {
       public cards: CardsSettings = new CardsSettings();
+      public cardsTitles: CardsTitlesSettings = new CardsTitlesSettings();
+      public cardsInformations: CardsInformationsSettings = new CardsInformationsSettings();
       }
 
-    export class CardsSettings {
-     // Default background color
+export class CardsSettings {
+      // Default background color
       public backgroundColor: string = "lightblue";
-     }
+      // Default card height
+      public cardHeight: number = 240;
+      // Default card width
+      public cardWidth: number = 180;
+      }
+
+export class CardsTitlesSettings {
+      // Default font size
+      public fontSize: number = 12;
+      // Default font family
+      public fontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
+      // Default font color
+      public fontColor: string = "black";
+}
+
+export class CardsInformationsSettings {
+      // Default information name font size
+      public infoNamesFontSize: number = 10;
+      // Default information name font family
+      public infoNamesFontFamily: string = "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif";
+      // Default information name font color
+      public infoNamesFontColor: string = "#666666";
+      // Default information value font size
+      public infoValuesFontSize: number = 14;
+      // Default information value font family
+      public infoValuesFontFamily: string = "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif";
+      // Default information value font color
+      public infoValuesFontColor: string = "black";
+      // Default spacing between each information
+      public spaceBetweenInformations: number = 60;
+}
 
