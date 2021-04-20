@@ -9,6 +9,11 @@
             "displayName": "Informations",
             "name": "informations",
             "kind": "Measure"
+        },
+        {
+            "displayName": "Images",
+            "name": "images",
+            "kind": "Measure"
         }
     ],
     "objects": {
@@ -145,6 +150,9 @@
                     },
                     "informations": {
                         "max": 4
+                    },
+                    "images": {
+                        "max": 1
                     }
                 }
             ],
@@ -162,6 +170,11 @@
                         {
                             "bind": {
                                 "to": "informations"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "images"
                             }
                         }
                     ]

@@ -39,9 +39,9 @@ export class CardsSettings {
       // Default background color
       public backgroundColor: string = "lightblue";
       // Default card height
-      public cardHeight: number = 240;
+      public cardHeight: number = 320;
       // Default card width
-      public cardWidth: number = 180;
+      public cardWidth: number = 280;
       }
 
 export class CardsTitlesSettings {

@@ -42,9 +42,10 @@ import DataView = powerbi.DataView;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import * as d3 from "d3";
 import { dataViewObject } from "powerbi-visuals-utils-dataviewutils";
-import { style } from "d3";
+import { line, style } from "d3";
 
 type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
+
 
 export class Visual implements IVisual {
     private visualSettings: VisualSettings;
@@ -61,13 +62,11 @@ export class Visual implements IVisual {
 
 
     public update(options: VisualUpdateOptions) {
-        this.svg.selectAll('.card').remove();
-        this.svg.selectAll('.title').remove();
-
         let dataView: DataView = options.dataViews[0];
-        let titleValues = dataView.categorical.categories[0].values;
-        let infoValues = dataView.categorical.values;
 
+        let titleValues = dataView.categorical.categories[0].values;
+        let infoValues = dataView.categorical.values.filter((infoValue => infoValue.source.roles.informations == true));
+        let infoImages = dataView.categorical.values.filter((infoValue => infoValue.source.roles.images == true))[0];
         this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
 
         // Fonts and text properties
@@ -83,6 +82,12 @@ export class Visual implements IVisual {
         let containerWidth = options.viewport.width;
         let cardHeight = this.visualSettings.cards.cardHeight;
         let cardWidth = this.visualSettings.cards.cardWidth;
+        let imageHeight = 64;
+        let imageWidth = 64;
+        // Insert image in top right, while also delimiting width for title and fixing a minimal height for informations
+        if (infoImages !== undefined) {
+
+        }
         
         this.svg
             .attr('height', Visual.calculateTotalSVGHeight(titleValues.length, cardHeight, cardWidth, containerWidth))
@@ -93,24 +98,21 @@ export class Visual implements IVisual {
             .selectAll('.card')
             .data(titleValues)
             
+        let mergeElement = cards.enter().append<SVGElement>('rect').classed('card', true);
         cards
-            .enter()
-            .append('rect')
-            .classed('card', true)
+            .merge(mergeElement)
             .attr('height', cardHeight)
             .attr('width', cardWidth)
             .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
             .style('fill', this.visualSettings.cards.backgroundColor);
 
-
         let titles = this.svg
             .selectAll('.title')
             .data(titleValues)
 
+        mergeElement = titles.enter().append<SVGElement>('text').classed('title', true);
         titles
-            .enter()
-            .append('text')
-            .classed('title', true)
+            .merge(mergeElement)
             .attr('y', titlesFontHeight)
             .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
             .style('font-size', titlesFontSize)
@@ -125,9 +127,28 @@ export class Visual implements IVisual {
                 )
             });
 
+        // Render images in top right if there's imageUrl column
+        if (infoImages !== undefined) {
+            let images = this.svg
+                .selectAll('.image')
+                .data(infoImages.values);
 
+            mergeElement = images.enter().append<SVGElement>('svg:image').classed('image', true);
+            images
+                .merge(mergeElement)
+                .attr('height', imageHeight)
+                .attr('width', imageWidth)
+                .attr('x', cardWidth - imageWidth)
+                .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
+                .attr('xlink:href', (image: string) => image);
 
-        
+            images
+                .exit()
+                .remove();
+        } else {
+            this.svg.selectAll('.image').remove();
+        }
+
         // Each field of information values will be rendered over the cards
         infoValues.forEach((infoValue: powerbi.DataViewValueColumn, index: number) => {
             this.svg.selectAll('.info' + index).remove();
@@ -242,6 +263,32 @@ export class Visual implements IVisual {
         return textMeasurementService.getTailoredTextOrDefault(textProperties, cardWidth);
     }
 
+    public static separateTextInLines(text: string, maxLineLength: number): string[] {
+        let splittedWords: string[] = text.split(' ');
+        let wordLengths = splittedWords.map((word: string) => word.length);
+
+        let endOfLines: number[] = [0];
+        wordLengths.reduce((previousLength: number, currentLength: number, index: number) => {
+            if (previousLength + currentLength + index > maxLineLength) {
+                endOfLines.push(index);
+                return currentLength;
+            }
+            return previousLength + currentLength
+        });
+        endOfLines.push(wordLengths.length);
+
+        let splittedLines: string[] = [];
+        if (endOfLines.length > 1) {
+            endOfLines.reduce((previousIndex: number, currentIndex: number) => {
+                splittedLines.push(splittedWords.slice(previousIndex, currentIndex).join(' '));
+                return currentIndex
+            })
+        }
+
+        return splittedLines;
+    }
+
+
     public static fitMultiLineLongText(text: string, fontFamily: string, fontSize: string, cardWidth: number, fontHeight: number): string {
         let textProperties: TextProperties = {
             text: text,
@@ -252,9 +299,9 @@ export class Visual implements IVisual {
         let textWidth: number = textMeasurementService.measureSvgTextWidth(textProperties);
         let textLength: number = text.length;
         let maxCharsPerLine: number = Math.floor(textLength * (cardWidth / textWidth)) - 1;
-        let splittedText: string[] = text.match(new RegExp('.{1,' + maxCharsPerLine + '}', 'g'));
+        let splittedText: string[] = Visual.separateTextInLines(text, maxCharsPerLine);
+
         let multiLineHtmlText: string = '<tspan>' + splittedText[0] + '</tspan>';
-        
         splittedText.slice(1).forEach((line: string) => {
             multiLineHtmlText += '<tspan x = 0, dy=' + fontHeight + '>' + line + '</tspan>'
         });
@@ -279,7 +326,10 @@ export class Visual implements IVisual {
             fontSize: fontSize
         };
         let textWidth: number = textMeasurementService.measureSvgTextWidth(textProperties);
-        let totalTextHeight: number = Math.ceil(textWidth / cardWidth) * fontHeight;
+        let textLength: number = text.length;
+        let maxCharsPerLine: number = Math.floor(textLength * (cardWidth / textWidth)) - 1;
+        let splittedText: string[] = Visual.separateTextInLines(text, maxCharsPerLine);
+        let totalTextHeight: number = splittedText.length * fontHeight;
 
         return totalTextHeight;
     }
