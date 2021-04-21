@@ -37,11 +37,13 @@ export class VisualSettings extends DataViewObjectsParser {
 
 export class CardsSettings {
       // Default card height
-      public cardHeight: number = 240;
+      public cardHeight: number = 220;
       // Default card width
       public cardWidth: number = 220;
       // Default background color
       public backgroundColor: string = "#F7F7F7";
+      // Default background transparency
+      public backgroundTransparency: number = 0;
       // Default border width
       public borderWidth: string = "0";
       // Default border color
@@ -61,18 +63,20 @@ export class CardsTitlesSettings {
 
 export class CardsInformationsSettings {
       // Default information name font size
-      public infoNamesFontSize: number = 11;
+      public infoNamesFontSize: number = 10;
       // Default information name font family
       public infoNamesFontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
       // Default information name font color
       public infoNamesFontColor: string = "#666666";
       // Default information value font size
-      public infoValuesFontSize: number = 12;
+      public infoValuesFontSize: number = 10;
       // Default information value font family
       public infoValuesFontFamily: string = "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif";
       // Default information value font color
       public infoValuesFontColor: string = "black";
+      // Default information numeric display units
+      public infoValuesDisplayUnits: string = "Auto";
       // Default spacing between each information
-      public spaceBetweenInformations: number = 60;
+      public spaceBetweenInformations: number = 50;
 }
 

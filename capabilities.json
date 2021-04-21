@@ -45,6 +45,12 @@
                         }
                     }
                 },
+                "backgroundTransparency": {
+                    "displayName": "Background Transparency",
+                    "type": {
+                        "numeric": true
+                    }
+                },
                 "borderWidth": {
                     "displayName": "Border Width",
                     "type": {
@@ -180,6 +186,15 @@
                         }
                     }
                 },
+                "infoValuesDisplayUnits": {
+                    "displayName": "Numeric Info Value Units",
+                    "description": "Change the display units format when information is numeric",
+                    "type": {
+                        "formatting": {
+                            "labelDisplayUnits": true
+                        }
+                    }
+                },
                 "spaceBetweenInformations": {
                     "displayName": "Info Spacing",
                     "description": "The spacing between each information field (max value is 600)",
@@ -198,7 +213,7 @@
                         "max": 1
                     },
                     "informations": {
-                        "max": 4
+                        "max": 8
                     },
                     "images": {
                         "max": 1
