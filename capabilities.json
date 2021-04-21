@@ -32,14 +32,14 @@
                 },
                 "cardHeight": {
                     "displayName": "Card Height",
-                    "description": "Total width of the card (between 150 and 800)",
+                    "description": "Total width of the card (between 150 and 1200)",
                     "type": {
                         "numeric": true
                     }
                 },
                 "cardWidth": {
                     "displayName": "Card Width",
-                    "description": "Total width of the card (between 150 and 800)",
+                    "description": "Total width of the card (between 150 and 1200)",
                     "type": {
                         "numeric": true
                     }

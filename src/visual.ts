@@ -63,12 +63,15 @@ export class Visual implements IVisual {
 
     public update(options: VisualUpdateOptions) {
         let dataView: DataView = options.dataViews[0];
+        if(!dataView.categorical.hasOwnProperty('values')) return;
 
         let titleValues = dataView.categorical.categories[0].values;
         let infoValues = dataView.categorical.values.filter((infoValue => infoValue.source.roles.informations == true));
         let infoImages = dataView.categorical.values.filter((infoValue => infoValue.source.roles.images == true))[0];
-        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
 
+        this.visualSettings = VisualSettings.parse<VisualSettings>(dataView);
+        
+        //infoImages = infoImages[0]
         // Fonts and text properties
         let titlesFontSize = this.visualSettings.cardsTitles.fontSize + "pt";
         let titlesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsTitles.fontFamily, titlesFontSize);
@@ -80,54 +83,67 @@ export class Visual implements IVisual {
         // Cards and texts attributes and properties
         let containerHeight = options.viewport.height;
         let containerWidth = options.viewport.width;
-        let cardHeight = this.visualSettings.cards.cardHeight;
-        let cardWidth = this.visualSettings.cards.cardWidth;
-        let imageHeight = 64;
-        let imageWidth = 64;
-        // Insert image in top right, while also delimiting width for title and fixing a minimal height for informations
-        if (infoImages !== undefined) {
-
-        }
+        let cardHeight = d3.min([d3.max([150, this.visualSettings.cards.cardHeight]), 1200]);
+        let cardWidth = d3.min([d3.max([150, this.visualSettings.cards.cardWidth]), 1200]);
+        let cardX = cardWidth;
+        let cardY = cardHeight;
         
-        this.svg
-            .attr('height', Visual.calculateTotalSVGHeight(titleValues.length, cardHeight, cardWidth, containerWidth))
+        let backgroundX = 5;
+        let backgroundY = 5;    
+        let backgroundHeight = cardHeight - 10;
+        let backgroundWidth = cardWidth - 10;
+
+        let contentX = backgroundX + 5;
+        let contentY = backgroundY + 5;
+        let contentHeight = backgroundHeight - 10;
+        let contentWidth = backgroundWidth - 10;
+        
+        let imageX = contentX;
+        let imageY = contentY;
+        let imageHeight = 24 * (0.5 + Math.floor(cardWidth / 150));
+        let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 150));
+
+        let titleX = contentX;
+        let titleY = contentY;
+        let titleHeight = contentHeight;
+        let titleWidth = contentWidth;
+
+        let infoX = contentX;
+        let infoY = contentY + infoNamesFontHeight + titlesFontHeight * 2;
+        let infoHeight = contentHeight;
+        let infoWidth = contentWidth;
+        // if there's an image, recalculate title to stand after it, and the first info to not overlap the image
+        if (infoImages !== undefined) {
+            titleX += imageWidth;
+            titleY = imageHeight / 2 - titlesFontHeight / 2;
+            titleWidth -= imageWidth;
+
+            infoY = contentY + infoNamesFontHeight + imageHeight;
+            infoHeight -= imageHeight;
+        }
+    
+        let cards = this.svg
+            .attr('height', Visual.calculateTotalSVGHeight(titleValues.length, cardX, cardY, containerWidth))
             .attr('width', containerWidth)
             .style('overflow', 'scroll');
 
-        let cards = this.svg
-            .selectAll('.card')
+
+        let backgrounds = cards
+            .selectAll('.background')
             .data(titleValues)
             
-        let mergeElement = cards.enter().append<SVGElement>('rect').classed('card', true);
-        cards
+        let mergeElement = backgrounds.enter().append<SVGElement>('rect').classed('background', true);
+        backgrounds
             .merge(mergeElement)
-            .attr('height', cardHeight)
-            .attr('width', cardWidth)
-            .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
+            .attr('x', backgroundX)
+            .attr('y', backgroundY)
+            .attr('height', backgroundHeight)
+            .attr('width', backgroundWidth)
+            .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
             .style('fill', this.visualSettings.cards.backgroundColor);
 
-        let titles = this.svg
-            .selectAll('.title')
-            .data(titleValues)
 
-        mergeElement = titles.enter().append<SVGElement>('text').classed('title', true);
-        titles
-            .merge(mergeElement)
-            .attr('y', titlesFontHeight)
-            .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
-            .style('font-size', titlesFontSize)
-            .style('font-family', this.visualSettings.cardsTitles.fontFamily)
-            .style('fill', this.visualSettings.cardsTitles.fontColor)
-            .text((title: string) => {
-                return Visual.fitTextInsideCard(
-                    title, 
-                    this.visualSettings.cardsTitles.fontFamily, 
-                    titlesFontSize, 
-                    cardWidth
-                )
-            });
-
-        // Render images in top right if there's imageUrl column
+        // Render images in top left if there's imageUrl column
         if (infoImages !== undefined) {
             let images = this.svg
                 .selectAll('.image')
@@ -136,10 +152,11 @@ export class Visual implements IVisual {
             mergeElement = images.enter().append<SVGElement>('svg:image').classed('image', true);
             images
                 .merge(mergeElement)
+                .attr('x', imageX)
+                .attr('y', imageY)
                 .attr('height', imageHeight)
                 .attr('width', imageWidth)
-                .attr('x', cardWidth - imageWidth)
-                .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
+                .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
                 .attr('xlink:href', (image: string) => image);
 
             images
@@ -149,13 +166,37 @@ export class Visual implements IVisual {
             this.svg.selectAll('.image').remove();
         }
 
+
+        let titles = this.svg
+            .selectAll('.title')
+            .data(titleValues)
+
+        mergeElement = titles.enter().append<SVGElement>('text').classed('title', true);
+        titles
+            .merge(mergeElement)
+            .attr('x', titleX)
+            .attr('y', titleY + titlesFontHeight)
+            .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
+            .style('font-size', titlesFontSize)
+            .style('font-family', this.visualSettings.cardsTitles.fontFamily)
+            .style('fill', this.visualSettings.cardsTitles.fontColor)
+            .text((title: string) => {
+                return Visual.fitTextInsideCard(
+                    title, 
+                    this.visualSettings.cardsTitles.fontFamily, 
+                    titlesFontSize, 
+                    titleWidth
+                )
+            });
+
+
         // Each field of information values will be rendered over the cards
         infoValues.forEach((infoValue: powerbi.DataViewValueColumn, index: number) => {
             this.svg.selectAll('.info' + index).remove();
             /**
              *  Calculate height for each block of information texts, so it can control the minimum  
-             *  spacing between blocks,also recording the totals in the DataViewValueColumn object 
-             *  will let the card total height to be correctly calculated
+             *  spacing between blocks, also recording the totals in the DataViewValueColumn object 
+             *  will let info to not be rendered below card height
              * 
              **/ 
             let infoLongestValue = infoValue.values.reduce((c: string, n: string) => c.length > n.length ? c : n);
@@ -163,7 +204,7 @@ export class Visual implements IVisual {
                 infoLongestValue.toString(), 
                 this.visualSettings.cardsInformations.infoValuesFontFamily, 
                 infoValuesFontSize, 
-                cardWidth,
+                infoWidth,
                 infoValuesFontHeight
             );
             
@@ -172,55 +213,61 @@ export class Visual implements IVisual {
                 .map((i: powerbi.DataViewValueColumn) => i["infoTotalSpacing"])
                 .reduce((c: number, n: number) => c + n);
 
-
-
-            let infos = this.svg
-                .selectAll('.info' + index)
-                .data(infoValue.values)
-                .enter()
-            
-            infos
-                .append('text')
-                .classed('info' + index, true)
-                .attr('y', (titlesFontHeight * 2.5) + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
-                .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
-                .style('font-size', infoNamesFontSize)
-                .style('font-family', this.visualSettings.cardsInformations.infoNamesFontFamily)
-                .style('fill', this.visualSettings.cardsInformations.infoNamesFontColor)
-                .text(
-                    Visual.fitTextInsideCard(
-                        infoValue.source.displayName, 
-                        this.visualSettings.cardsInformations.infoNamesFontFamily, 
-                        infoNamesFontSize, 
-                        cardWidth
-                    )
-                );
-
-            infos
-                .append('text')
-                .classed('info' + index, true)
-                .attr('y', (titlesFontHeight * 2.5) + infoNamesFontHeight + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
-                .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardHeight, cardWidth, containerWidth))
-                .style('font-size', infoValuesFontSize)
-                .style('font-family', this.visualSettings.cardsInformations.infoValuesFontFamily)
-                .style('fill', this.visualSettings.cardsInformations.infoValuesFontColor)
-                .html((value: any) => {
-                    return Visual.fitMultiLineLongText(
-                        value.toString(), 
-                        this.visualSettings.cardsInformations.infoValuesFontFamily, 
-                        infoValuesFontSize, 
-                        cardWidth,
-                        infoValuesFontHeight
-                    )
-                });
+            if (infoValue["cumulativeTotalSpacing"] < infoHeight) {
+                let infos = this.svg
+                    .selectAll('.info' + index)
+                    .data(infoValue.values)
+                    .enter()
+                
+                infos
+                    .append('text')
+                    .classed('info' + index, true)
+                    .attr('x', infoX)
+                    .attr('y', infoY + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
+                    .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
+                    .style('font-size', infoNamesFontSize)
+                    .style('font-family', this.visualSettings.cardsInformations.infoNamesFontFamily)
+                    .style('fill', this.visualSettings.cardsInformations.infoNamesFontColor)
+                    .text(
+                        Visual.fitTextInsideCard(
+                            infoValue.source.displayName, 
+                            this.visualSettings.cardsInformations.infoNamesFontFamily, 
+                            infoNamesFontSize, 
+                            infoWidth
+                        )
+                    );
 
                 infos
-                    .exit()
-                    .remove();                   
+                    .append('text')
+                    .classed('info' + index, true)
+                    .attr('x', infoX)
+                    .attr('y', infoY + infoNamesFontHeight + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
+                    .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
+                    .style('font-size', infoValuesFontSize)
+                    .style('font-family', this.visualSettings.cardsInformations.infoValuesFontFamily)
+                    .style('fill', this.visualSettings.cardsInformations.infoValuesFontColor)
+                    .html((value: any) => {
+                        return Visual.fitMultiLineLongText(
+                            value.toString(), 
+                            this.visualSettings.cardsInformations.infoValuesFontFamily, 
+                            infoValuesFontSize,
+                            infoX,
+                            infoWidth,
+                            infoValuesFontHeight
+                        )
+                    });
+
+                    infos
+                        .exit()
+                        .remove(); 
+                }                  
         });
             
-
         cards
+            .exit()
+            .remove();
+
+        backgrounds
             .exit()
             .remove();
 
@@ -235,22 +282,19 @@ export class Visual implements IVisual {
     }
 
 
-    public static calculateCardHeight(totalElementsHeight: number): number {
-        return totalElementsHeight + 20
-    }
 
-    public static calculateTotalSVGHeight(dataLength: number, cardHeight: number, cardWidth: number, containerWidth: number): number {
-        let totalHeight: number = Math.ceil(dataLength / Math.floor(containerWidth / cardWidth)) * cardHeight;
-
-        return totalHeight;
-    }
-
-    public static positionCardInGrid(position: number, cardHeight: number, cardWidth: number, containerWidth: number): string {
-        let maxPerRow: number = Math.floor(containerWidth / cardWidth);
-        let x: number = (position - (maxPerRow * Math.floor(position / maxPerRow))) * cardWidth;
-        let y: number = Math.floor(position / maxPerRow) * cardHeight;
+    public static positionCardInGrid(position: number, elementWidth: number, elementHeight: number, containerWidth: number): string {
+        let maxPerRow: number = Math.floor(containerWidth / elementWidth);
+        let x: number = (position - (maxPerRow * Math.floor(position / maxPerRow))) * elementWidth;
+        let y: number = Math.floor(position / maxPerRow) * elementHeight;
 
         return 'translate('+ x +', '+ y +')';
+    }
+
+    public static calculateTotalSVGHeight(dataLength: number, elementWidth: number, elementHeight: number, containerWidth: number): number {
+        let totalHeight: number = Math.ceil(dataLength / Math.floor(containerWidth / elementWidth)) * elementHeight;
+        console.log(totalHeight)
+        return totalHeight;
     }
 
     public static fitTextInsideCard(text: string, fontFamily: string, fontSize: string, cardWidth: number): string {
@@ -289,7 +333,7 @@ export class Visual implements IVisual {
     }
 
 
-    public static fitMultiLineLongText(text: string, fontFamily: string, fontSize: string, cardWidth: number, fontHeight: number): string {
+    public static fitMultiLineLongText(text: string, fontFamily: string, fontSize: string, elementX: number, elementWidth: number, fontHeight: number): string {
         let textProperties: TextProperties = {
             text: text,
             fontFamily: fontFamily,
@@ -298,12 +342,12 @@ export class Visual implements IVisual {
 
         let textWidth: number = textMeasurementService.measureSvgTextWidth(textProperties);
         let textLength: number = text.length;
-        let maxCharsPerLine: number = Math.floor(textLength * (cardWidth / textWidth)) - 1;
+        let maxCharsPerLine: number = Math.floor(textLength * (elementWidth / textWidth)) - 1;
         let splittedText: string[] = Visual.separateTextInLines(text, maxCharsPerLine);
 
         let multiLineHtmlText: string = '<tspan>' + splittedText[0] + '</tspan>';
         splittedText.slice(1).forEach((line: string) => {
-            multiLineHtmlText += '<tspan x = 0, dy=' + fontHeight + '>' + line + '</tspan>'
+            multiLineHtmlText += '<tspan x = ' + elementX + ', dy=' + fontHeight + '>' + line + '</tspan>'
         });
 
         return multiLineHtmlText;
