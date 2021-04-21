@@ -1,7 +1,7 @@
 {
     "dataRoles": [
         {
-            "displayName": "Title",
+            "displayName": "Titles",
             "name": "title",
             "kind": "Grouping"
         },
@@ -19,7 +19,22 @@
     "objects": {
         "cards": {
             "displayName": "Cards Properties",
+            "description": "Properties applied to each card",
             "properties": {
+                "cardHeight": {
+                    "displayName": "Height",
+                    "description": "Total width of the card (between 150 and 1200)",
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "cardWidth": {
+                    "displayName": "Width",
+                    "description": "Total width of the card (between 150 and 1200)",
+                    "type": {
+                        "numeric": true
+                    }
+                },
                 "backgroundColor": {
                     "displayName": "Background Color",
                     "type": {
@@ -30,16 +45,50 @@
                         }
                     }
                 },
-                "cardHeight": {
-                    "displayName": "Card Height",
-                    "description": "Total width of the card (between 150 and 1200)",
+                "borderWidth": {
+                    "displayName": "Border Width",
                     "type": {
-                        "numeric": true
+                        "enumeration": [
+                            {
+                                "displayName": "0 px",
+                                "value": "0"
+                            },
+                            {
+                                "displayName": "1 px",
+                                "value": "1"
+                            },
+                            {
+                                "displayName": "2 px",
+                                "value": "2"
+                            },
+                            {
+                                "displayName": "3 px",
+                                "value": "3"
+                            },
+                            {
+                                "displayName": "4 px",
+                                "value": "4"
+                            },
+                            {
+                                "displayName": "5 px",
+                                "value": "5"
+                            }
+                        ]
                     }
                 },
-                "cardWidth": {
-                    "displayName": "Card Width",
-                    "description": "Total width of the card (between 150 and 1200)",
+                "borderColor": {
+                    "displayName": "Border Color",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "borderRadius": {
+                    "displayName": "Border Radius",
+                    "description": "Border radius between 0 and 15 (in px)",
                     "type": {
                         "numeric": true
                     }
@@ -49,7 +98,7 @@
         "cardsTitles": {
             "displayName": "Cards Titles Properties",
             "properties": {
-                "fontSize": {
+                "titleFontSize": {
                     "displayName": "Text Size",
                     "type": {
                         "formatting": {

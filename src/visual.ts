@@ -73,7 +73,7 @@ export class Visual implements IVisual {
         
         //infoImages = infoImages[0]
         // Fonts and text properties
-        let titlesFontSize = this.visualSettings.cardsTitles.fontSize + "pt";
+        let titlesFontSize = this.visualSettings.cardsTitles.titleFontSize + "pt";
         let titlesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsTitles.fontFamily, titlesFontSize);
         let infoNamesFontSize = this.visualSettings.cardsInformations.infoNamesFontSize + "pt";
         let infoNamesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsInformations.infoNamesFontFamily, infoNamesFontSize);
@@ -83,10 +83,12 @@ export class Visual implements IVisual {
         // Cards and texts attributes and properties
         let containerHeight = options.viewport.height;
         let containerWidth = options.viewport.width;
+
         let cardHeight = d3.min([d3.max([150, this.visualSettings.cards.cardHeight]), 1200]);
         let cardWidth = d3.min([d3.max([150, this.visualSettings.cards.cardWidth]), 1200]);
         let cardX = cardWidth;
         let cardY = cardHeight;
+        if(containerWidth < cardWidth) return;
         
         let backgroundX = 5;
         let backgroundY = 5;    
@@ -114,9 +116,9 @@ export class Visual implements IVisual {
         let infoWidth = contentWidth;
         // if there's an image, recalculate title to stand after it, and the first info to not overlap the image
         if (infoImages !== undefined) {
-            titleX += imageWidth;
+            titleX = titleX + (10 + imageWidth);
             titleY = imageHeight / 2 - titlesFontHeight / 2;
-            titleWidth -= imageWidth;
+            titleWidth = titleWidth - (10 + imageWidth);
 
             infoY = contentY + infoNamesFontHeight + imageHeight;
             infoHeight -= imageHeight;
@@ -140,7 +142,10 @@ export class Visual implements IVisual {
             .attr('height', backgroundHeight)
             .attr('width', backgroundWidth)
             .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
-            .style('fill', this.visualSettings.cards.backgroundColor);
+            .style('fill', this.visualSettings.cards.backgroundColor)
+            .style('stroke', this.visualSettings.cards.borderColor)
+            .style('stroke-width', this.visualSettings.cards.borderWidth)
+            .attr('rx', d3.min(["15", this.visualSettings.cards.borderRadius]));
 
 
         // Render images in top left if there's imageUrl column
@@ -176,6 +181,8 @@ export class Visual implements IVisual {
             .merge(mergeElement)
             .attr('x', titleX)
             .attr('y', titleY + titlesFontHeight)
+            .attr('height', titleHeight)
+            .attr('width', titleWidth)
             .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
             .style('font-size', titlesFontSize)
             .style('font-family', this.visualSettings.cardsTitles.fontFamily)
@@ -293,7 +300,7 @@ export class Visual implements IVisual {
 
     public static calculateTotalSVGHeight(dataLength: number, elementWidth: number, elementHeight: number, containerWidth: number): number {
         let totalHeight: number = Math.ceil(dataLength / Math.floor(containerWidth / elementWidth)) * elementHeight;
-        console.log(totalHeight)
+
         return totalHeight;
     }
 
@@ -310,7 +317,7 @@ export class Visual implements IVisual {
     public static separateTextInLines(text: string, maxLineLength: number): string[] {
         let splittedWords: string[] = text.split(' ');
         let wordLengths = splittedWords.map((word: string) => word.length);
-
+        
         let endOfLines: number[] = [0];
         wordLengths.reduce((previousLength: number, currentLength: number, index: number) => {
             if (previousLength + currentLength + index > maxLineLength) {

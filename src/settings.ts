@@ -36,32 +36,38 @@ export class VisualSettings extends DataViewObjectsParser {
       }
 
 export class CardsSettings {
-      // Default background color
-      public backgroundColor: string = "lightblue";
       // Default card height
-      public cardHeight: number = 320;
+      public cardHeight: number = 240;
       // Default card width
-      public cardWidth: number = 280;
+      public cardWidth: number = 220;
+      // Default background color
+      public backgroundColor: string = "#F7F7F7";
+      // Default border width
+      public borderWidth: string = "0";
+      // Default border color
+      public borderColor: string = "black";
+      // Default border radius
+      public borderRadius: string = "0";
       }
 
 export class CardsTitlesSettings {
       // Default font size
-      public fontSize: number = 12;
+      public titleFontSize: number = 10;
       // Default font family
-      public fontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
+      public fontFamily: string = "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif";
       // Default font color
       public fontColor: string = "black";
 }
 
 export class CardsInformationsSettings {
       // Default information name font size
-      public infoNamesFontSize: number = 10;
+      public infoNamesFontSize: number = 11;
       // Default information name font family
-      public infoNamesFontFamily: string = "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif";
+      public infoNamesFontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
       // Default information name font color
       public infoNamesFontColor: string = "#666666";
       // Default information value font size
-      public infoValuesFontSize: number = 14;
+      public infoValuesFontSize: number = 12;
       // Default information value font family
       public infoValuesFontFamily: string = "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif";
       // Default information value font color
