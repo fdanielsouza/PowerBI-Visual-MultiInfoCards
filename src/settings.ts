@@ -36,8 +36,6 @@ export class VisualSettings extends DataViewObjectsParser {
       }
 
 export class CardsSettings {
-      // Default card height
-      public cardHeight: number = 220;
       // Default card width
       public cardWidth: number = 220;
       // Default background color

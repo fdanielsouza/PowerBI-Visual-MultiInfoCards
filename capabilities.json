@@ -21,13 +21,6 @@
             "displayName": "Cards Properties",
             "description": "Properties applied to each card",
             "properties": {
-                "cardHeight": {
-                    "displayName": "Height",
-                    "description": "Total width of the card (between 150 and 1200)",
-                    "type": {
-                        "numeric": true
-                    }
-                },
                 "cardWidth": {
                     "displayName": "Width",
                     "description": "Total width of the card (between 150 and 1200)",
