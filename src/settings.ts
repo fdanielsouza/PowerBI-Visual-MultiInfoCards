@@ -47,7 +47,7 @@ export class CardsSettings {
       // Default border color
       public borderColor: string = "black";
       // Default border radius
-      public borderRadius: string = "0";
+      public borderRadius: number = 0;
       }
 
 export class CardsTitlesSettings {
@@ -61,19 +61,19 @@ export class CardsTitlesSettings {
 
 export class CardsInformationsSettings {
       // Default information name font size
-      public infoNamesFontSize: number = 10;
+      public fieldsFontSize: number = 10;
       // Default information name font family
-      public infoNamesFontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
+      public fieldsFontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
       // Default information name font color
-      public infoNamesFontColor: string = "#666666";
+      public fieldsFontColor: string = "#666666";
       // Default information value font size
-      public infoValuesFontSize: number = 10;
+      public valuesFontSize: number = 10;
       // Default information value font family
-      public infoValuesFontFamily: string = "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif";
+      public valuesFontFamily: string = "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif";
       // Default information value font color
-      public infoValuesFontColor: string = "black";
+      public valuesFontColor: string = "black";
       // Default information numeric display units
-      public infoValuesDisplayUnits: string = "Auto";
+      public valuesDisplayUnits: string = "Auto";
       // Default spacing between each information
       public spaceBetweenInformations: number = 50;
 }

@@ -27,25 +27,193 @@
 
 import { textMeasurementService, valueFormatter, interfaces } from "powerbi-visuals-utils-formattingutils";
 import TextProperties = interfaces.TextProperties;
-import { VisualSettings } from "./settings";
+import { CardsInformationsSettings, CardsSettings, VisualSettings } from "./settings";
 import "core-js/stable";
 import "./../style/visual.less";
 import powerbi from "powerbi-visuals-api";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
-import IVisualHost = powerbi.extensibility.IVisualHost;
+import IVisualHost = powerbi.extensibility.visual.IVisualHost;
+import PrimitiveValue = powerbi.PrimitiveValue;
+import ISelectionId = powerbi.visuals.ISelectionId;
 import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import VisualObjectInstance = powerbi.VisualObjectInstance;
 import DataView = powerbi.DataView;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
+import { getValue, getCategoricalObjectValue } from "./objectEnumerationUtility";
 import * as d3 from "d3";
 import { dataViewObject } from "powerbi-visuals-utils-dataviewutils";
-import { line, range, style } from "d3";
+
 
 type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
+
+
+/**
+ * Interface for the cards model
+ * 
+ * @interface
+ * @property { CardDataPoint[] } dataPoints                 - Set of data points to be rendered
+ * @property { CardSettings } settings                     - General settings for every card
+ */
+interface CardViewModel {
+    dataPoints: CardDataPoint[];
+    settings: CardSettings;
+}
+
+/**
+ * Interface for data points
+ * 
+ * @interface
+ * @property { PrimitiveValue } title                       - Title for the card data point
+ * @property { string[] } fields                            - Names of fields inside the card
+ * @property { string[] } types                             - Data Types of values inside the card
+ * @property { string[] } formats                           - Formats of values inside the card
+ * @property { PrimitiveValue[] } values                    - Values of fields in the card
+ * @property { PrimitiveValue} image                        - An optional image in the card
+ * @property { ISelectionId } selectionId                   - Id assigned for visual interaction
+ */
+interface CardDataPoint {
+    title: PrimitiveValue;
+    informations: {
+        fields: string[],
+        types: string[],
+        formats?: string[],
+        values: PrimitiveValue[]
+    };
+    image?: PrimitiveValue;
+    selectionId: ISelectionId;
+}
+
+interface CardSettings {
+    cardBackground: {
+        width: number,
+        fill: string,
+        transparency: number,
+        border: {
+            width: string,
+            color: string,
+            radius: number
+        }
+    };
+
+    cardTitle: {
+        fontSize: string,
+        fontFamily: string,
+        fill: string
+    };
+
+    cardInformations: {
+        fields: {
+            fontSize: string,
+            fontFamily: string,
+            fill: string
+        };
+        values: {
+            fontSize: string,
+            fontFamily: string,
+            fill: string,
+            displayUnits: string,
+        };
+        spacing: number
+    }; 
+}
+
+
+function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardViewModel {
+    let viewModel: CardViewModel = {
+        dataPoints: [],
+        settings: <CardSettings>{}
+    }
+    let dataView: DataView = options.dataViews[0];
+    let visualSettings: VisualSettings = VisualSettings.parse<VisualSettings>(dataView);
+
+    if(!dataView
+        || !dataView
+        || !dataView.categorical
+        || !dataView.categorical.categories
+        || !dataView.categorical.categories[0].source
+        || !dataView.categorical.values
+    ) {
+        return viewModel;
+    }
+
+    let titles = dataView.categorical.categories[0].values;
+    let informations = dataView.categorical.values.filter((value => value.source.roles.informations == true));
+    let images = dataView.categorical.values.filter((value => value.source.roles.images == true))[0] || null;
+ 
+    let cardDataPoints: CardDataPoint[] = [];
+
+    for (let i = 0; i < titles.length; i++) {
+        const selectionId: ISelectionId = host.createSelectionIdBuilder()
+            .withCategory(dataView.categorical.categories[0], i)
+            .createSelectionId();
+
+        cardDataPoints.push({
+            title: titles[i],
+            informations: {
+                fields: informations.map(info => info.source.displayName),
+                types: informations.map(info => getColumnDataType(info.source.type)),
+                formats: informations.map(info => info.source.format),
+                values: informations.map(info => info.values[i])
+            },
+            image: images ? images[i] : null,
+            selectionId: selectionId
+        })       
+    }
+
+    let objects = dataView.metadata.objects;
+
+    let cardSettings: CardSettings = {
+        cardBackground: {
+            width: visualSettings.cards.cardWidth,
+            fill: visualSettings.cards.backgroundColor,
+            transparency: visualSettings.cards.backgroundTransparency,
+            border: {
+                width: visualSettings.cards.borderWidth,
+                color: visualSettings.cards.borderColor,
+                radius: visualSettings.cards.borderRadius
+            }
+        },   
+        cardTitle: {
+            fontSize: visualSettings.cardsTitles.titleFontSize + "px",
+            fontFamily: visualSettings.cardsTitles.fontFamily,
+            fill: visualSettings.cardsTitles.fontColor
+        },
+        cardInformations: {
+            fields: {
+                fontSize: visualSettings.cardsInformations.fieldsFontSize + "px",
+                fontFamily: visualSettings.cardsInformations.fieldsFontFamily,
+                fill: visualSettings.cardsInformations.fieldsFontColor
+            },
+            values: {
+                fontSize: visualSettings.cardsInformations.valuesFontSize + "px",
+                fontFamily: visualSettings.cardsInformations.valuesFontFamily,
+                fill: visualSettings.cardsInformations.valuesFontColor,
+                displayUnits: visualSettings.cardsInformations.valuesDisplayUnits
+            },
+            spacing: visualSettings.cardsInformations.spaceBetweenInformations
+        }   
+    }
+
+    return {
+        dataPoints: cardDataPoints,
+        settings: cardSettings
+    }
+}
+
+function getColumnDataType(columnTypes: powerbi.ValueTypeDescriptor): string {
+    if(columnTypes.bool) return 'bool';
+    if(columnTypes.text) return 'text';
+    if(columnTypes.numeric) return 'numeric';
+    if(columnTypes.dateTime) return 'dateTime';
+    if(columnTypes.integer) return 'integer';
+    if(columnTypes.duration) return 'duration';
+    if(columnTypes.binary) return 'binary';
+
+}
 
 
 export class Visual implements IVisual {
@@ -53,20 +221,103 @@ export class Visual implements IVisual {
     private host: IVisualHost;
     private selectionManager: ISelectionManager;
     private svg: Selection<SVGElement>;
+    private cardDataPoints: CardDataPoint[];
+    private cardSettings: CardSettings;
+    private cardSelection: d3.Selection<d3.BaseType, any, d3.BaseType, any>
+
 
     constructor(options: VisualConstructorOptions) {
-        options.element.style.overflowY = 'auto';
         this.host = options.host;
         this.selectionManager = options.host.createSelectionManager();
         
         this.svg = d3.select(options.element)
             .append('svg')
             .classed('multiInfoCards', true);
+    };
 
-    }
 
+    public update(options: VisualUpdateOptions) { 
+        let viewModel: CardViewModel = visualTransform(options, this.host);
+        let settings = viewModel.settings;
+        this.cardDataPoints = viewModel.dataPoints;
 
-    public update(options: VisualUpdateOptions) {
+        let containerHeight = options.viewport.height;
+        let containerWidth = options.viewport.width;
+        let cardWidth = d3.min([d3.max([150, settings.cardBackground.width]), 1200]);
+
+        let informationFIeldsFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.fields.fontFamily, settings.cardInformations.fields.fontSize);
+        let informationValuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.values.fontFamily, settings.cardInformations.values.fontSize);
+
+        let hasImages = this.cardDataPoints.filter(p => p.image != null).length;
+        let hasValues = this.cardDataPoints.filter(p => p.informations.fields != null).length;
+
+    
+        if(hasValues) {
+            this.cardDataPoints.forEach((p, i) => {
+                for(let j = 0; j < p.informations.values.length; j++) {
+                    let type = p.informations.types[j];
+                    let format = p.informations.formats[j] || null;
+
+                    // Format values accordingly to Power BI fields
+                    p.informations.values[j] = Visual.formatDataViewValues(
+                        p.informations.values[j], 
+                        type, 
+                        format, 
+                        settings.cardInformations.values.displayUnits
+                    );
+                }
+
+                // This calculate's the minimal spacing needed for them to not overlap and append to the viewModel
+                let longestInformation = p.informations.values
+                    .reduce((a, b) => a.toString().length < b.toString().length ? a : b);
+
+                let longestHeight = Visual.calculateMultiLineTextHeight(
+                    longestInformation.toString(),
+                    settings.cardInformations.values.fontFamily,
+                    settings.cardInformations.values.fontSize,
+                    cardWidth,
+                    informationValuesFontHeight 
+                );
+                
+                p.informations["informationSpacing"] = d3.min([d3.max([informationFIeldsFontHeight + longestHeight, settings.cardInformations.spacing]), 600]); 
+                p.informations["accumInformationSpacing"] = this.cardDataPoints
+                    .slice(0, i + 1)
+                    .map(d => d.informations["informationSpacing"])
+                    .reduce((a, b) => a + b);
+            });
+
+        } 
+        
+        console.log(this.cardDataPoints)
+        /*
+                infoValues.forEach((infoValue: powerbi.DataViewValueColumn, index: number) => {
+                    // Uses the method to format dataViewValueColumn.values accordingly, so it can be both measure and displayed
+                    infoValue.values = Visual.formatColumnValues(infoValue, infoValuesDisplayUnits);
+                    // Capture the longest value in the column, so we can measure the height needed if it's multiline
+                    let infoLongestValue = infoValue.values.reduce((c: string, n: string) => c.length > n.length ? c : n);
+                    let infoLongestHeight = Visual.calculateMultiLineTextHeight(
+                        infoLongestValue.toString(), 
+                        this.visualSettings.cardsInformations.valuesFontFamily, 
+                        infoValuesFontSize, 
+                        d3.min([d3.max([150, this.visualSettings.cards.cardWidth]), 1200]),
+                        infoValuesFontHeight
+                    );
+                    // Append the heights needed for both the current element and the cumulative total to the dataViewValueColumns object
+                    infoValue["infoTotalSpacing"] = d3.min([d3.max([infoNamesFontHeight + infoLongestHeight, infoSpacing]), 600]);            
+                    infoValue["cumulativeTotalSpacing"] = infoValues.slice(0, index + 1)
+                        .map((i: powerbi.DataViewValueColumn) => i["infoTotalSpacing"])
+                        .reduce((c: number, n: number) => c + n);
+                });
+        
+/*
+        let cardHeight = 30 + (infoImages == undefined ? titlesFontHeight : d3.max([titlesFontHeight, 24 * (0.5 + Math.floor(cardWidth / 150))]))
+                            + (infoValues.length ? infoValues[infoValues.length - 1]["cumulativeTotalSpacing"] : 0);
+
+        let grid = this.svg
+            .attr('height', Visual.calculateTotalSVGHeight(this.cardDataPoints.length, cardX, cardY, containerWidth))
+            .attr('width', containerWidth)
+        */
+        /*
         // Remove all cards, titles and images
         this.svg.selectAll('.background').remove()
         this.svg.selectAll('.title').remove()
@@ -85,15 +336,15 @@ export class Visual implements IVisual {
         
         // Stores most used visualSettings properties for organization purposes
         let titlesFontSize = this.visualSettings.cardsTitles.titleFontSize + "pt"; 
-        let infoNamesFontSize = this.visualSettings.cardsInformations.infoNamesFontSize + "pt";
-        let infoValuesFontSize = this.visualSettings.cardsInformations.infoValuesFontSize + "pt";
-        let infoValuesDisplayUnits = this.visualSettings.cardsInformations.infoValuesDisplayUnits;
+        let infoNamesFontSize = this.visualSettings.cardsInformations.fieldsFontSize + "pt";
+        let infoValuesFontSize = this.visualSettings.cardsInformations.valuesFontSize + "pt";
+        let infoValuesDisplayUnits = this.visualSettings.cardsInformations.valuesDisplayUnits;
         let infoSpacing = this.visualSettings.cardsInformations.spaceBetweenInformations;
 
         // Calculate text heights to help find heights and spacings
         let titlesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsTitles.fontFamily, titlesFontSize);
-        let infoNamesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsInformations.infoNamesFontFamily, infoNamesFontSize);
-        let infoValuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsInformations.infoValuesFontFamily, infoValuesFontSize);
+        let infoNamesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsInformations.fieldsFontFamily, infoNamesFontSize);
+        let infoValuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', this.visualSettings.cardsInformations.valuesFontFamily, infoValuesFontSize);
      
         // Calculates all elements widths
         let containerWidth = options.viewport.width;
@@ -114,7 +365,7 @@ export class Visual implements IVisual {
                 let infoLongestValue = infoValue.values.reduce((c: string, n: string) => c.length > n.length ? c : n);
                 let infoLongestHeight = Visual.calculateMultiLineTextHeight(
                     infoLongestValue.toString(), 
-                    this.visualSettings.cardsInformations.infoValuesFontFamily, 
+                    this.visualSettings.cardsInformations.valuesFontFamily, 
                     infoValuesFontSize, 
                     d3.min([d3.max([150, this.visualSettings.cards.cardWidth]), 1200]),
                     infoValuesFontHeight
@@ -176,7 +427,7 @@ export class Visual implements IVisual {
             .style('opacity', 1 - (this.visualSettings.cards.backgroundTransparency / 100))
             .style('stroke', this.visualSettings.cards.borderColor)
             .style('stroke-width', this.visualSettings.cards.borderWidth)
-            .attr('rx', d3.min(["15", this.visualSettings.cards.borderRadius]));
+            .attr('rx', d3.min([15, this.visualSettings.cards.borderRadius]));
 
 
         // Render images in top left if there's imageUrl column
@@ -244,12 +495,12 @@ export class Visual implements IVisual {
                     .attr('y', infoY + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
                     .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
                     .style('font-size', infoNamesFontSize)
-                    .style('font-family', this.visualSettings.cardsInformations.infoNamesFontFamily)
-                    .style('fill', this.visualSettings.cardsInformations.infoNamesFontColor)
+                    .style('font-family', this.visualSettings.cardsInformations.fieldsFontFamily)
+                    .style('fill', this.visualSettings.cardsInformations.fieldsFontColor)
                     .text(
                         Visual.fitTextInMaxWidth(
                             infoValue.source.displayName, 
-                            this.visualSettings.cardsInformations.infoNamesFontFamily, 
+                            this.visualSettings.cardsInformations.fieldsFontFamily, 
                             infoNamesFontSize, 
                             infoWidth
                         )
@@ -262,12 +513,12 @@ export class Visual implements IVisual {
                     .attr('y', infoY + infoNamesFontHeight + infoValue["cumulativeTotalSpacing"] - infoValue["infoTotalSpacing"])
                     .attr('transform', (_, index: number) => Visual.positionCardInGrid(index, cardX, cardY, containerWidth))
                     .style('font-size', infoValuesFontSize)
-                    .style('font-family', this.visualSettings.cardsInformations.infoValuesFontFamily)
-                    .style('fill', this.visualSettings.cardsInformations.infoValuesFontColor)
+                    .style('font-family', this.visualSettings.cardsInformations.valuesFontFamily)
+                    .style('fill', this.visualSettings.cardsInformations.valuesFontColor)
                     .html((value: any) => {
                         return Visual.fitMultiLineLongText(
                             value.toString(), 
-                            this.visualSettings.cardsInformations.infoValuesFontFamily, 
+                            this.visualSettings.cardsInformations.valuesFontFamily, 
                             infoValuesFontSize,
                             infoX,
                             infoWidth,
@@ -291,8 +542,8 @@ export class Visual implements IVisual {
 
         titles
             .exit()
-            .remove();
-    }
+            .remove(); */
+    } 
 
     public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
         const settings: VisualSettings = this.visualSettings || <VisualSettings>VisualSettings.getDefault();
@@ -366,22 +617,19 @@ export class Visual implements IVisual {
         return multiLineHtmlText;
     }
 
-    public static formatColumnValues(dataViewColumn: powerbi.DataViewValueColumn, displayUnits: string): any[] {
-        let result = [];
-        if (dataViewColumn.source.format !== undefined && dataViewColumn.source.type.dateTime != true) {
-            let iValueFormatter = valueFormatter.create({ format: dataViewColumn.source.format });
-            result = dataViewColumn.values.map(v => iValueFormatter.format(v));
-        } else if (dataViewColumn.source.format !== undefined && dataViewColumn.source.type.dateTime == true) {
-            let iValueFormatter = valueFormatter.create({ format: dataViewColumn.source.format });
-            result = dataViewColumn.values.map(v => iValueFormatter.format(d3.isoParse(v.toString())));
-        } else if (dataViewColumn.source.type.numeric == true) {
+    public static formatDataViewValues(value: any, type: string, format?: string, displayUnits?: string): any {
+        if (format != null && type != 'dateTime') {
+            let iValueFormatter = valueFormatter.create({ format: format });
+            return iValueFormatter.format(value);
+        } else if (format != null && type == 'dateTime') {
+            let iValueFormatter = valueFormatter.create({ format: format });
+            return iValueFormatter.format(d3.isoParse(value));
+        } else if (type == 'numeric') {
             let iValueFormatter = valueFormatter.create({ value: displayUnits });
-            result = dataViewColumn.values.map(v => iValueFormatter.format(v));
+            return iValueFormatter.format(value);
         } else {
-            result = dataViewColumn.values;
+            return value;
         }
-
-        return result;
     }
 
     public static calculateCardTextHeight(text: string, fontFamily: string, fontSize: string): number {
