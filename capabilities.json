@@ -44,35 +44,10 @@
                         "numeric": true
                     }
                 },
-                "borderWidth": {
+                "strokeWidth": {
                     "displayName": "Border Width",
                     "type": {
-                        "enumeration": [
-                            {
-                                "displayName": "0 px",
-                                "value": "0"
-                            },
-                            {
-                                "displayName": "1 px",
-                                "value": "1"
-                            },
-                            {
-                                "displayName": "2 px",
-                                "value": "2"
-                            },
-                            {
-                                "displayName": "3 px",
-                                "value": "3"
-                            },
-                            {
-                                "displayName": "4 px",
-                                "value": "4"
-                            },
-                            {
-                                "displayName": "5 px",
-                                "value": "5"
-                            }
-                        ]
+                        "numeric": true
                     }
                 },
                 "borderColor": {
@@ -127,8 +102,8 @@
         },"cardsInformations": {
             "displayName": "Cards Informations Properties",
             "properties": {
-                "fieldsFontSize": {
-                    "displayName": "Information Name Text Size",
+                "fontSize": {
+                    "displayName": "Information Field Text Size",
                     "type": {
                         "formatting": {
                             "fontSize": true
@@ -136,7 +111,7 @@
                     }
                 },
                 "fieldsFontFamily": {
-                    "displayName": "Information Name Font family",
+                    "displayName": "Information Field Font family",
                     "type": {
                         "formatting": {
                             "fontFamily": true
@@ -144,7 +119,7 @@
                     }
                 },
                 "fieldsFontColor": {
-                    "displayName": "Information Name Font Color",
+                    "displayName": "Information Field Font Color",
                     "type": {
                         "fill": {
                             "solid": {
@@ -153,7 +128,7 @@
                         }
                     }
                 },
-                "valuesFontSize": {
+                "secFontSize": {
                     "displayName": "Information Value Text Size",
                     "type": {
                         "formatting": {

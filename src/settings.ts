@@ -43,7 +43,7 @@ export class CardsSettings {
       // Default background transparency
       public backgroundTransparency: number = 0;
       // Default border width
-      public borderWidth: string = "0";
+      public strokeWidth: number = 0;
       // Default border color
       public borderColor: string = "black";
       // Default border radius
@@ -61,13 +61,13 @@ export class CardsTitlesSettings {
 
 export class CardsInformationsSettings {
       // Default information name font size
-      public fieldsFontSize: number = 10;
+      public fontSize: number = 10;
       // Default information name font family
       public fieldsFontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
       // Default information name font color
       public fieldsFontColor: string = "#666666";
       // Default information value font size
-      public valuesFontSize: number = 10;
+      public secFontSize: number = 10;
       // Default information value font family
       public valuesFontFamily: string = "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif";
       // Default information value font color

@@ -69,20 +69,14 @@ interface CardViewModel {
  * @interface
  * @property { PrimitiveValue } title                       - Title for the card data point
  * @property { string[] } fields                            - Names of fields inside the card
- * @property { string[] } types                             - Data Types of values inside the card
- * @property { string[] } formats                           - Formats of values inside the card
  * @property { PrimitiveValue[] } values                    - Values of fields in the card
  * @property { PrimitiveValue} image                        - An optional image in the card
  * @property { ISelectionId } selectionId                   - Id assigned for visual interaction
  */
 interface CardDataPoint {
     title: PrimitiveValue;
-    informations: {
-        fields: string[],
-        types: string[],
-        formats?: string[],
-        values: PrimitiveValue[]
-    };
+    fields: string[];
+    values: PrimitiveValue[];
     image?: PrimitiveValue;
     selectionId: ISelectionId;
 }
@@ -122,13 +116,12 @@ interface CardSettings {
 }
 
 
-function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardViewModel {
+function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visualSettings: VisualSettings): CardViewModel {
     let viewModel: CardViewModel = {
         dataPoints: [],
         settings: <CardSettings>{}
     }
     let dataView: DataView = options.dataViews[0];
-    let visualSettings: VisualSettings = VisualSettings.parse<VisualSettings>(dataView);
 
     if(!dataView
         || !dataView
@@ -143,28 +136,8 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
     let titles = dataView.categorical.categories[0].values;
     let informations = dataView.categorical.values.filter((value => value.source.roles.informations == true));
     let images = dataView.categorical.values.filter((value => value.source.roles.images == true))[0] || null;
- 
+
     let cardDataPoints: CardDataPoint[] = [];
-
-    for (let i = 0; i < titles.length; i++) {
-        const selectionId: ISelectionId = host.createSelectionIdBuilder()
-            .withCategory(dataView.categorical.categories[0], i)
-            .createSelectionId();
-
-        cardDataPoints.push({
-            title: titles[i],
-            informations: {
-                fields: informations.map(info => info.source.displayName),
-                types: informations.map(info => getColumnDataType(info.source.type)),
-                formats: informations.map(info => info.source.format),
-                values: informations.map(info => info.values[i])
-            },
-            image: images ? images[i] : null,
-            selectionId: selectionId
-        })       
-    }
-
-    let objects = dataView.metadata.objects;
 
     let cardSettings: CardSettings = {
         cardBackground: {
@@ -172,7 +145,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
             fill: visualSettings.cards.backgroundColor,
             transparency: visualSettings.cards.backgroundTransparency,
             border: {
-                width: visualSettings.cards.borderWidth,
+                width: visualSettings.cards.strokeWidth + "px",
                 color: visualSettings.cards.borderColor,
                 radius: visualSettings.cards.borderRadius
             }
@@ -184,18 +157,32 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
         },
         cardInformations: {
             fields: {
-                fontSize: visualSettings.cardsInformations.fieldsFontSize + "px",
+                fontSize: visualSettings.cardsInformations.fontSize + "px",
                 fontFamily: visualSettings.cardsInformations.fieldsFontFamily,
                 fill: visualSettings.cardsInformations.fieldsFontColor
             },
             values: {
-                fontSize: visualSettings.cardsInformations.valuesFontSize + "px",
+                fontSize: visualSettings.cardsInformations.secFontSize + "px",
                 fontFamily: visualSettings.cardsInformations.valuesFontFamily,
                 fill: visualSettings.cardsInformations.valuesFontColor,
                 displayUnits: visualSettings.cardsInformations.valuesDisplayUnits
             },
             spacing: visualSettings.cardsInformations.spaceBetweenInformations
         }   
+    }
+
+    for (let i = 0; i < titles.length; i++) {
+        const selectionId: ISelectionId = host.createSelectionIdBuilder()
+            .withCategory(dataView.categorical.categories[0], i)
+            .createSelectionId();
+
+        cardDataPoints.push({
+            title: titles[i],
+            fields: informations.map(info => info.source.displayName),
+            values: informations.map(info => formatDataViewValues(info.values[i], getColumnDataType(info.source.type), info.source.format, cardSettings.cardInformations.values.displayUnits)),
+            image: images ? images.values[i] : null,
+            selectionId: selectionId
+        });
     }
 
     return {
@@ -213,6 +200,21 @@ function getColumnDataType(columnTypes: powerbi.ValueTypeDescriptor): string {
     if(columnTypes.duration) return 'duration';
     if(columnTypes.binary) return 'binary';
 
+}
+
+function formatDataViewValues(value: any, type: string, format?: string, displayUnits?: string): any {
+    if (format != null && type != 'dateTime') {
+        let iValueFormatter = valueFormatter.create({ format: format });
+        return iValueFormatter.format(value);
+    } else if (format != null && type == 'dateTime') {
+        let iValueFormatter = valueFormatter.create({ format: format });
+        return iValueFormatter.format(d3.isoParse(value));
+    } else if (type == 'numeric') {
+        let iValueFormatter = valueFormatter.create({ value: displayUnits });
+        return iValueFormatter.format(value);
+    } else {
+        return value;
+    }
 }
 
 
@@ -237,87 +239,211 @@ export class Visual implements IVisual {
 
 
     public update(options: VisualUpdateOptions) { 
-        let viewModel: CardViewModel = visualTransform(options, this.host);
+        d3.selectAll('.background').remove();
+        d3.selectAll('.image').remove();
+        d3.selectAll('.title').remove();
+        d3.selectAll('.information').remove();
+        d3.selectAll('.information-fields').remove();
+        d3.selectAll('.information-values').remove();
+        this.visualSettings = VisualSettings.parse<VisualSettings>(options.dataViews[0]);
+        
+        let viewModel: CardViewModel = visualTransform(options, this.host, this.visualSettings);
         let settings = viewModel.settings;
         this.cardDataPoints = viewModel.dataPoints;
+
+        let hasImages = this.cardDataPoints.filter(p => p.image != null).length;
+        let hasValues = this.cardDataPoints.filter(p => p.values != null).length;
 
         let containerHeight = options.viewport.height;
         let containerWidth = options.viewport.width;
         let cardWidth = d3.min([d3.max([150, settings.cardBackground.width]), 1200]);
+        let cardPadding = 15;
+        let contentWidth = cardWidth - (2 * cardPadding);
+ 
+        let titleFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardTitle.fontFamily, settings.cardTitle.fontSize);
+        let fieldsFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.fields.fontFamily, settings.cardInformations.fields.fontSize);
+        let valuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.values.fontFamily, settings.cardInformations.values.fontSize);
 
-        let informationFIeldsFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.fields.fontFamily, settings.cardInformations.fields.fontSize);
-        let informationValuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.values.fontFamily, settings.cardInformations.values.fontSize);
+        // Lets calculate the needed number of lines for each information, so we can have the card total height
+        let informationHeights = this.cardDataPoints.map(p => p.values
+            .map(v => Visual.calculateMultiLineTextHeight(
+                v.toString(), 
+                settings.cardInformations.values.fontFamily, 
+                settings.cardInformations.values.fontSize, 
+                contentWidth, 
+                valuesFontHeight
+            )
+        ));
+        let longestHeights = d3.transpose(informationHeights).map(i => i.reduce((a, b) => a > b ? a : b));
+        let totalLongestHeight = longestHeights.reduce<number>((a: number, b:number) => a + b, 0)
+        
+        // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
+        let cardHeight = 30 + totalLongestHeight 
+            + (fieldsFontHeight * this.cardDataPoints[0].fields.length)
+            + (hasImages ? d3.max([titleFontHeight, 24 * (0.5 + Math.floor(cardWidth / 150))]) : titleFontHeight * 2)
 
-        let hasImages = this.cardDataPoints.filter(p => p.image != null).length;
-        let hasValues = this.cardDataPoints.filter(p => p.informations.fields != null).length;
+        let container = this.svg
+            .attr('height', Visual.calculateTotalSVGHeight(this.cardDataPoints.length, cardWidth, cardHeight, containerWidth))
+            .attr('width', containerWidth);
 
-    
-        if(hasValues) {
-            this.cardDataPoints.forEach((p, i) => {
-                for(let j = 0; j < p.informations.values.length; j++) {
-                    let type = p.informations.types[j];
-                    let format = p.informations.formats[j] || null;
+        let cardMargin = 5;
+        let backgroundWidth = cardWidth - (2 * cardMargin);
+        let backgroundHeight = cardHeight - (2 * cardMargin);
 
-                    // Format values accordingly to Power BI fields
-                    p.informations.values[j] = Visual.formatDataViewValues(
-                        p.informations.values[j], 
-                        type, 
-                        format, 
-                        settings.cardInformations.values.displayUnits
-                    );
-                }
+        let backgrounds = container
+            .selectAll('.background')
+            .data(this.cardDataPoints)
+            .enter();
 
-                // This calculate's the minimal spacing needed for them to not overlap and append to the viewModel
-                let longestInformation = p.informations.values
-                    .reduce((a, b) => a.toString().length < b.toString().length ? a : b);
+        backgrounds
+            .append<SVGElement>('rect')
+            .classed('background', true)
+            .attr('x', cardMargin)
+            .attr('y', cardMargin)
+            .attr('height', backgroundHeight)
+            .attr('width', backgroundWidth)
+            .attr('transform', (_, i) => Visual.positionCardInGrid(i, cardWidth, cardHeight, containerWidth))
+            .style('fill', settings.cardBackground.fill)
+            .style('opacity', 1 - (settings.cardBackground.transparency / 100))
+            .style('stroke', settings.cardBackground.border.color)
+            .style('stroke-width', settings.cardBackground.border.width)
+            .attr('rx', d3.min([15, settings.cardBackground.border.radius]));
 
-                let longestHeight = Visual.calculateMultiLineTextHeight(
-                    longestInformation.toString(),
-                    settings.cardInformations.values.fontFamily,
-                    settings.cardInformations.values.fontSize,
-                    cardWidth,
-                    informationValuesFontHeight 
-                );
-                
-                p.informations["informationSpacing"] = d3.min([d3.max([informationFIeldsFontHeight + longestHeight, settings.cardInformations.spacing]), 600]); 
-                p.informations["accumInformationSpacing"] = this.cardDataPoints
-                    .slice(0, i + 1)
-                    .map(d => d.informations["informationSpacing"])
-                    .reduce((a, b) => a + b);
+
+        let contentHeight = cardHeight - (2 * cardPadding);
+        let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 150));
+        let imageHeight = 24 * (0.5 + Math.floor(cardWidth / 150));
+
+        if(hasImages) {
+            let images = container
+                .selectAll('.image')
+                .data(this.cardDataPoints.map(p => p.image))
+                .enter();
+
+            images
+                .append<SVGElement>('svg:image')
+                .classed('image', true)
+                .attr('x', cardPadding)
+                .attr('y', cardPadding)
+                .attr('height', imageHeight)
+                .attr('width', imageWidth)
+                .attr('transform', (_, i) => Visual.positionCardInGrid(i, cardWidth, cardHeight, containerWidth))
+                .attr('xlink:href', (i: string) => i);
+
+                images
+                    .exit()
+                    .remove();
+        }
+
+        let titleWidth = hasImages ? contentWidth - imageWidth - 20 : contentWidth;
+        let titleXPadding = hasImages ? cardPadding + 20 + imageWidth : cardPadding;
+        let titleYPadding = hasImages ? (imageHeight + cardPadding) / 2 + (titleFontHeight / 2) : cardPadding + titleFontHeight;
+
+        let titles = container
+            .selectAll('.title')
+            .data(this.cardDataPoints.map(p => p.title))
+            .enter();
+
+        titles
+            .append<SVGElement>('text')
+            .classed('title', true)
+            .attr('x', titleXPadding)
+            .attr('y', titleYPadding)
+            .attr('width', titleWidth)
+            .attr('transform', (_, i) => Visual.positionCardInGrid(i, cardWidth, cardHeight, containerWidth))
+            .style('font-size', settings.cardTitle.fontSize)
+            .style('font-family', settings.cardTitle.fontFamily)
+            .style('fill', settings.cardTitle.fill)
+            .text((t: string) => {
+                return Visual.fitTextInMaxWidth(
+                    t, 
+                    settings.cardTitle.fontFamily, 
+                    settings.cardTitle.fontSize, 
+                    titleWidth
+                )
             });
 
-        } 
-        
-        console.log(this.cardDataPoints)
-        /*
-                infoValues.forEach((infoValue: powerbi.DataViewValueColumn, index: number) => {
-                    // Uses the method to format dataViewValueColumn.values accordingly, so it can be both measure and displayed
-                    infoValue.values = Visual.formatColumnValues(infoValue, infoValuesDisplayUnits);
-                    // Capture the longest value in the column, so we can measure the height needed if it's multiline
-                    let infoLongestValue = infoValue.values.reduce((c: string, n: string) => c.length > n.length ? c : n);
-                    let infoLongestHeight = Visual.calculateMultiLineTextHeight(
-                        infoLongestValue.toString(), 
-                        this.visualSettings.cardsInformations.valuesFontFamily, 
-                        infoValuesFontSize, 
-                        d3.min([d3.max([150, this.visualSettings.cards.cardWidth]), 1200]),
-                        infoValuesFontHeight
-                    );
-                    // Append the heights needed for both the current element and the cumulative total to the dataViewValueColumns object
-                    infoValue["infoTotalSpacing"] = d3.min([d3.max([infoNamesFontHeight + infoLongestHeight, infoSpacing]), 600]);            
-                    infoValue["cumulativeTotalSpacing"] = infoValues.slice(0, index + 1)
-                        .map((i: powerbi.DataViewValueColumn) => i["infoTotalSpacing"])
-                        .reduce((c: number, n: number) => c + n);
-                });
-        
-/*
-        let cardHeight = 30 + (infoImages == undefined ? titlesFontHeight : d3.max([titlesFontHeight, 24 * (0.5 + Math.floor(cardWidth / 150))]))
-                            + (infoValues.length ? infoValues[infoValues.length - 1]["cumulativeTotalSpacing"] : 0);
 
-        let grid = this.svg
-            .attr('height', Visual.calculateTotalSVGHeight(this.cardDataPoints.length, cardX, cardY, containerWidth))
-            .attr('width', containerWidth)
-        */
-        /*
+            let infoYPadding = cardPadding + (hasImages ? d3.max([imageHeight, titleFontHeight]) : titleFontHeight * 2);
+
+            let informations = container
+                .selectAll('.information')
+                .data(this.cardDataPoints)
+                .enter()
+                    .append('g')
+                    .classed('information', true)
+                    .attr('x', cardPadding)
+                    .attr('y', infoYPadding)
+                    .attr('width', contentWidth)
+                    .attr('transform', (_, i) => Visual.positionCardInGrid(i, cardWidth, cardHeight, containerWidth));
+
+            informations
+                .each(function(d) {
+
+                    // First fields
+                    d3.select(this)
+                        .selectAll('.information-fields')
+                        .data(d.fields)
+                        .enter()
+                            .append<SVGElement>('text')
+                            .classed('information-fields', true)
+                            .attr('x', cardPadding)
+                            .attr('y', (_, i) => infoYPadding + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
+                            .attr('height', contentHeight)
+                            .attr('width', contentWidth)
+                            .style('font-size', settings.cardInformations.fields.fontSize)
+                            .style('font-family', settings.cardInformations.fields.fontFamily)
+                            .style('fill', settings.cardInformations.fields.fill)
+                            .text(d => 
+                                Visual.fitTextInMaxWidth(
+                                    d, 
+                                    settings.cardInformations.fields.fontFamily, 
+                                    settings.cardInformations.fields.fontSize, 
+                                    contentWidth
+                                )
+                            );
+
+    
+                    // Then values
+                    d3.select(this)
+                        .selectAll('.information-values')
+                        .data(d.values)
+                        .enter()
+                            .append<SVGElement>('text')
+                            .classed('information-values', true)
+                            .attr('x', cardPadding)
+                            .attr('y', (_, i) => infoYPadding + valuesFontHeight + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
+                            .attr('height', contentHeight)
+                            .attr('width', contentWidth)
+                            .style('font-size', settings.cardInformations.values.fontSize)
+                            .style('font-family', settings.cardInformations.values.fontFamily)
+                            .style('fill', settings.cardInformations.values.fill)
+                            .html((d: any) => {
+                                return Visual.fitMultiLineLongText(
+                                    d, 
+                                    settings.cardInformations.values.fontFamily,
+                                    settings.cardInformations.values.fontSize,
+                                    cardPadding, 
+                                    contentWidth, 
+                                    valuesFontHeight
+                                )
+                            });
+                });
+
+                backgrounds
+                    .exit()
+                    .remove();
+
+                titles
+                    .exit()
+                    .remove();
+
+                informations
+                    .exit()
+                    .remove();
+
+        
+   /*     
         // Remove all cards, titles and images
         this.svg.selectAll('.background').remove()
         this.svg.selectAll('.title').remove()
@@ -418,7 +544,7 @@ export class Visual implements IVisual {
         backgrounds
             .append<SVGElement>('rect')
             .classed('background', true)
-            .attr('x', backgroundX)
+            .attr('x', backgroundX)x
             .attr('y', backgroundY)
             .attr('height', backgroundHeight)
             .attr('width', backgroundWidth)
@@ -617,21 +743,6 @@ export class Visual implements IVisual {
         return multiLineHtmlText;
     }
 
-    public static formatDataViewValues(value: any, type: string, format?: string, displayUnits?: string): any {
-        if (format != null && type != 'dateTime') {
-            let iValueFormatter = valueFormatter.create({ format: format });
-            return iValueFormatter.format(value);
-        } else if (format != null && type == 'dateTime') {
-            let iValueFormatter = valueFormatter.create({ format: format });
-            return iValueFormatter.format(d3.isoParse(value));
-        } else if (type == 'numeric') {
-            let iValueFormatter = valueFormatter.create({ value: displayUnits });
-            return iValueFormatter.format(value);
-        } else {
-            return value;
-        }
-    }
-
     public static calculateCardTextHeight(text: string, fontFamily: string, fontSize: string): number {
         let textProperties: TextProperties = {
             text: text,
@@ -652,6 +763,7 @@ export class Visual implements IVisual {
         let textLength: number = text.length;
         let maxCharsPerLine: number = Math.floor(textLength * (cardWidth / textWidth)) - 1;
         let splittedText: string[] = Visual.separateTextInLines(text, maxCharsPerLine);
+
         let totalTextHeight: number = splittedText.length * fontHeight;
 
         return totalTextHeight;
