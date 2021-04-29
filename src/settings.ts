@@ -74,7 +74,5 @@ export class CardsInformationsSettings {
       public valuesFontColor: string = "black";
       // Default information numeric display units
       public valuesDisplayUnits: string = "Auto";
-      // Default spacing between each information
-      public spaceBetweenInformations: number = 50;
 }
 

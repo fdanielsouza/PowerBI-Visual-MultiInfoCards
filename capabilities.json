@@ -162,13 +162,6 @@
                             "labelDisplayUnits": true
                         }
                     }
-                },
-                "spaceBetweenInformations": {
-                    "displayName": "Info Spacing",
-                    "description": "The spacing between each information field (max value is 600)",
-                    "type": {
-                        "numeric": true
-                    }
                 }
             }
         }
