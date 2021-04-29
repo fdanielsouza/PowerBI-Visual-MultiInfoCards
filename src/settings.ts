@@ -27,6 +27,7 @@
 "use strict";
 
 import { dataViewObjectsParser } from "powerbi-visuals-utils-dataviewutils";
+import { TooltipServiceWrapper } from "powerbi-visuals-utils-tooltiputils";
 import DataViewObjectsParser = dataViewObjectsParser.DataViewObjectsParser;
 
 export class VisualSettings extends DataViewObjectsParser {

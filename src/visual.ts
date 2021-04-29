@@ -74,6 +74,7 @@ interface CardViewModel {
  * @property { string[] } fields                            - Names of fields inside the card
  * @property { PrimitiveValue[] } values                    - Values of fields in the card
  * @property { PrimitiveValue} image                        - An optional image in the card
+ * @property { TooltipItemFields } tooltips                 - Field to store aditional tooltip items
  * @property { ISelectionId } selectionId                   - Id assigned for visual interaction
  */
 interface CardDataPoint {
@@ -81,8 +82,11 @@ interface CardDataPoint {
     fields: string[];
     values: PrimitiveValue[];
     image?: PrimitiveValue;
+    tooltipFields?: string[];
+    tooltipValues?: PrimitiveValue[];
     selectionId: ISelectionId;
 }
+
 
 interface CardSettings {
     cardBackground: {
@@ -136,8 +140,9 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     }
 
     let titles = dataView.categorical.categories[0].values;
-    let informations = dataView.categorical.values.filter((value => value.source.roles.informations == true));
-    let images = dataView.categorical.values.filter((value => value.source.roles.images == true))[0] || null;
+    let informations = dataView.categorical.values.filter(value => value.source.roles.informations == true);
+    let images = dataView.categorical.values.filter(value => value.source.roles.images == true)[0] || null;
+    let tooltips = dataView.categorical.values.filter(value => value.source.roles.tooltips == true);
 
     let cardDataPoints: CardDataPoint[] = [];
 
@@ -171,7 +176,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             }
         }   
     }
-
+    
     for (let i = 0; i < titles.length; i++) {
         const selectionId: ISelectionId = host.createSelectionIdBuilder()
             .withCategory(dataView.categorical.categories[0], i)
@@ -182,6 +187,8 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             fields: informations.map(info => info.source.displayName),
             values: informations.map(info => formatDataViewValues(info.values[i], getColumnDataType(info.source.type), info.source.format, cardSettings.cardInformations.values.displayUnits)),
             image: images ? images.values[i] : null,
+            tooltipFields: tooltips ? tooltips.map(tip => tip.source.displayName) : null,
+            tooltipValues: tooltips ? tooltips.map(tip => formatDataViewValues(tip.values[i], getColumnDataType(tip.source.type), tip.source.format, cardSettings.cardInformations.values.displayUnits)) : null, 
             selectionId: selectionId
         });
     }
@@ -252,7 +259,6 @@ export class Visual implements IVisual {
         d3.selectAll('.title').remove();
         d3.selectAll('.information-fields').remove();
         d3.selectAll('.information-values').remove();
-        d3.selectAll('.selector').remove();
 
         this.visualSettings = VisualSettings.parse<VisualSettings>(options.dataViews[0]);
         
@@ -260,22 +266,31 @@ export class Visual implements IVisual {
         let settings = viewModel.settings;
         this.cardDataPoints = viewModel.dataPoints;
 
+        // Having images should impact positioning of several elements, so this will be used further in logical tests
         let hasImages = this.cardDataPoints.filter(p => p.image != null).length;
-        let hasValues = this.cardDataPoints.filter(p => p.values != null).length;
 
-        let containerHeight = options.viewport.height;
         let containerWidth = options.viewport.width;
+        // Card width can be customized in between 150 and 1200
         let cardWidth = d3.min([d3.max([150, settings.cardBackground.width]), 1200]);
+        let cardMargin = 5;
         let cardPadding = 15;
+        let backgroundWidth = cardWidth - (2 * cardMargin);
         let contentWidth = cardWidth - (2 * cardPadding);
+        let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 150));
+        let imageHeight = 24 * (0.5 + Math.floor(cardWidth / 150));
+        // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
+        let titleWidth = hasImages ? contentWidth - imageWidth - 20 : contentWidth;
+        let titleXPadding = hasImages ? cardPadding + 20 + imageWidth : cardPadding;
 
+        // If the entire container is thinner than a single card, just return... or a lot of NaN and Inf should raise in position calcs
         if(containerWidth < cardWidth) return;
  
+        // Calculate font heights for each kind of text, so spacing between elements can be calculated
         let titleFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardTitle.fontFamily, settings.cardTitle.fontSize);
         let fieldsFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.fields.fontFamily, settings.cardInformations.fields.fontSize);
         let valuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.values.fontFamily, settings.cardInformations.values.fontSize);
 
-        // Lets calculate the needed number of lines for each information, so we can have the card total height
+        // Now calculate the needed number of lines for each information, so we can have the card each value height the longest one
         let informationHeights = this.cardDataPoints.map(p => p.values
             .map(v => Visual.calculateMultiLineTextHeight(
                 v.toString(), 
@@ -292,29 +307,22 @@ export class Visual implements IVisual {
         let cardHeight = 30 + totalLongestHeight 
             + (fieldsFontHeight * this.cardDataPoints[0].fields.length)
             + (hasImages ? d3.max([titleFontHeight, 24 * (0.5 + Math.floor(cardWidth / 150))]) : titleFontHeight * 2)
-
+        
+        let backgroundHeight = cardHeight - (2 * cardMargin);
+        let contentHeight = cardHeight - (2 * cardPadding);
+        let titleYPadding = hasImages ? (imageHeight + cardPadding) / 2 + (titleFontHeight / 2) : cardPadding + titleFontHeight;      
+        // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
+        let infoYPadding = cardPadding + (hasImages ? d3.max([imageHeight, titleFontHeight]) : titleFontHeight * 2);        
+        
+        
+        
+        
         let container = this.svg
             .attr('height', Visual.calculateTotalSVGHeight(this.cardDataPoints.length, cardWidth, cardHeight, containerWidth))
             .attr('width', containerWidth);
-
-        let cardMargin = 5;
-        let backgroundWidth = cardWidth - (2 * cardMargin);
-        let backgroundHeight = cardHeight - (2 * cardMargin);
-
-        let contentHeight = cardHeight - (2 * cardPadding);
-        let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 150));
-        let imageHeight = 24 * (0.5 + Math.floor(cardWidth / 150));
-
-
-        // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
-        let titleWidth = hasImages ? contentWidth - imageWidth - 20 : contentWidth;
-        let titleXPadding = hasImages ? cardPadding + 20 + imageWidth : cardPadding;
-        let titleYPadding = hasImages ? (imageHeight + cardPadding) / 2 + (titleFontHeight / 2) : cardPadding + titleFontHeight;
- 
-         // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
-        let infoYPadding = cardPadding + (hasImages ? d3.max([imageHeight, titleFontHeight]) : titleFontHeight * 2);
-        
-        
+        /*
+                Now we'll render each card on the screen and all of it's inner elements
+        */
         let cards = container
             .selectAll('.card')
             .data(this.cardDataPoints)
@@ -428,32 +436,21 @@ export class Visual implements IVisual {
                                 valuesFontHeight
                             )
                         });
-
-                // At last, an invisible rect element for selection and tooltip purposes
-                d3.select(this)
-                    .selectAll('.selector')
-                    .data([d])
-                    .enter()
-                        .append<SVGElement>('rect')
-                        .classed('selector', true)
-                        .attr('x', cardMargin)
-                        .attr('y', cardMargin)
-                        .attr('height', backgroundHeight)
-                        .attr('width', backgroundWidth)
-                        .style('opacity', 0)
- 
             });
 
+
             // Add listeners for tooltips and selection
-            this.svg.selectAll('.selector')
+            this.svg.selectAll('.card')
                 .on('click', d => this.selectionManager.select(d.selectionId));
 
             this.tooltipServiceWrapper.addTooltip(
-                this.svg.selectAll('.selector'),
+                this.svg.selectAll('.card'),
                 (datapoint: CardDataPoint) => this.getTooltipData(datapoint),
                 (datapoint: CardDataPoint) => datapoint.selectionId,
                 false
-            )
+            );
+
+
             cards
                 .exit()
                 .remove();
@@ -561,12 +558,14 @@ export class Visual implements IVisual {
 
     // Helper methods for selection, tooltips, etc
     private getTooltipData(value: CardDataPoint): VisualTooltipDataItem[] {
-       // let language = getLocalizedString(this.locale, "LanguageKey");
+        let fields = value.fields.concat(value.tooltipFields);
+        let values = value.values.concat(value.tooltipValues);
+
         let tooltip = [];
-        for(let i = 0; i < value.values.length; i++) {
+        for(let i = 0; i < values.length; i++) {
             tooltip.push({
-                displayName: value.fields[i],
-                value: value.values[i].toString(),
+                displayName: fields[i],
+                value: values[i].toString(),
                 header: value.title
             })
         }

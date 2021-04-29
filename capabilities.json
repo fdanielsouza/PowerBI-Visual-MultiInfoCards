@@ -14,6 +14,11 @@
             "displayName": "Images",
             "name": "images",
             "kind": "Measure"
+        },
+        {
+            "displayName": "Tooltips",
+            "name": "tooltips",
+            "kind": "Measure"
         }
     ],
     "objects": {
@@ -166,6 +171,15 @@
             }
         }
     },
+    "tooltips": {
+        "supportedTypes": {
+            "default": true,
+            "canvas": true
+        },
+        "roles": [
+            "tooltips"
+        ]
+    },
     "dataViewMappings": [
         {
             "conditions": [
@@ -200,6 +214,11 @@
                         {
                             "bind": {
                                 "to": "images"
+                            }
+                        },
+                        {
+                            "bind": {
+                                "to": "tooltips"
                             }
                         }
                     ]
