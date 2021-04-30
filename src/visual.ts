@@ -26,10 +26,8 @@
 "use strict";
 
 
-import {
-    event as d3Event,
-    select as d3Select
-} from "d3-selection";
+import { event as d3Event, select as d3Select } from "d3-selection";
+const getEvent = () => require("d3-selection").events;
 import { textMeasurementService, valueFormatter, interfaces } from "powerbi-visuals-utils-formattingutils";
 import TextProperties = interfaces.TextProperties;
 import { CardsInformationsSettings, CardsSettings, VisualSettings } from "./settings";
@@ -90,8 +88,8 @@ interface CardDataPoint {
     image?: PrimitiveValue;
     tooltipFields?: string[];
     tooltipValues?: PrimitiveValue[];
-    selectionId: ISelectionId;
-    selected: boolean;
+    highlights?: boolean;
+    selectionId: ISelectionId
 }
 
 
@@ -99,7 +97,7 @@ interface CardSettings {
     cardBackground: {
         width: number,
         fill: string,
-        transparency: number,
+        opacity: number,
         border: {
             width: string,
             color: string,
@@ -146,18 +144,12 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
         return viewModel;
     }
 
-    let titles = dataView.categorical.categories[0].values;
-    let informations = dataView.categorical.values.filter(value => value.source.roles.informations == true);
-    let images = dataView.categorical.values.filter(value => value.source.roles.images == true)[0] || null;
-    let tooltips = dataView.categorical.values.filter(value => value.source.roles.tooltips == true);
-
-    let cardDataPoints: CardDataPoint[] = [];
 
     let cardSettings: CardSettings = {
         cardBackground: {
             width: visualSettings.cards.cardWidth,
             fill: visualSettings.cards.backgroundColor,
-            transparency: visualSettings.cards.backgroundTransparency,
+            opacity: 1 - (visualSettings.cards.backgroundTransparency / 100),
             border: {
                 width: visualSettings.cards.strokeWidth + "px",
                 color: visualSettings.cards.borderColor,
@@ -183,6 +175,17 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             }
         }   
     }
+
+
+    let titles = dataView.categorical.categories[0].values;
+    let informations = dataView.categorical.values.filter(value => value.source.roles.informations == true);
+    let images = dataView.categorical.values.filter(value => value.source.roles.images == true)[0] || null;
+    let tooltips = dataView.categorical.values.filter(value => value.source.roles.tooltips == true);
+    let highlights = dataView.categorical.values[0].highlights || null;
+
+    let cardDataPoints: CardDataPoint[] = [];
+
+
     
     for (let i = 0; i < titles.length; i++) {
         const selectionId: ISelectionId = host.createSelectionIdBuilder()
@@ -196,8 +199,8 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             image: images ? images.values[i] : null,
             tooltipFields: tooltips ? tooltips.map(tip => tip.source.displayName) : null,
             tooltipValues: tooltips ? tooltips.map(tip => formatDataViewValues(tip.values[i], getColumnDataType(tip.source.type), tip.source.format, cardSettings.cardInformations.values.displayUnits)) : null, 
-            selectionId: selectionId,
-            selected: false
+            highlights: highlights ? highlights[i] != null : true,
+            selectionId: selectionId
         });
     }
 
@@ -272,8 +275,7 @@ export class Visual implements IVisual {
 
     public update(options: VisualUpdateOptions) { 
         this.events.renderingStarted(options);
-
-        let _this = this;
+        let self: this = this;
 
         d3.selectAll('.card').remove();
         d3.selectAll('.background').remove();
@@ -370,11 +372,10 @@ export class Visual implements IVisual {
                         .attr('y', cardMargin)
                         .attr('height', backgroundHeight)
                         .attr('width', backgroundWidth)
-                        .style('fill', _this.cardSettings.cardBackground.fill)
-                        .style('opacity', 1 - (_this.cardSettings.cardBackground.transparency / 100))
-                        .style('stroke', _this.cardSettings.cardBackground.border.color)
-                        .style('stroke-width', _this.cardSettings.cardBackground.border.width)
-                        .attr('rx', d3.min([15, _this.cardSettings.cardBackground.border.radius]));
+                        .style('fill', self.cardSettings.cardBackground.fill)
+                        .style('stroke', self.cardSettings.cardBackground.border.color)
+                        .style('stroke-width', self.cardSettings.cardBackground.border.width)
+                        .attr('rx', d3.min([15, self.cardSettings.cardBackground.border.radius]));
 
                 // At the top position of the card, each title
                 d3.select(this)
@@ -386,14 +387,14 @@ export class Visual implements IVisual {
                         .attr('x', titleXPadding)
                         .attr('y', titleYPadding)
                         .attr('width', titleWidth)
-                        .style('font-size', _this.cardSettings.cardTitle.fontSize)
-                        .style('font-family', _this.cardSettings.cardTitle.fontFamily)
-                        .style('fill', _this.cardSettings.cardTitle.fill)
+                        .style('font-size', self.cardSettings.cardTitle.fontSize)
+                        .style('font-family', self.cardSettings.cardTitle.fontFamily)
+                        .style('fill', self.cardSettings.cardTitle.fill)
                         .text((t: string) => {
-                            return Visual.fitTextInMaxWidth(
+                            return self.fitTextInMaxWidth(
                                 t, 
-                                _this.cardSettings.cardTitle.fontFamily, 
-                                _this.cardSettings.cardTitle.fontSize, 
+                                self.cardSettings.cardTitle.fontFamily, 
+                                self.cardSettings.cardTitle.fontSize, 
                                 titleWidth
                             )
                         });
@@ -424,14 +425,14 @@ export class Visual implements IVisual {
                         .attr('y', (_, i) => infoYPadding + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
                         .attr('height', contentHeight)
                         .attr('width', contentWidth)
-                        .style('font-size', _this.cardSettings.cardInformations.fields.fontSize)
-                        .style('font-family', _this.cardSettings.cardInformations.fields.fontFamily)
-                        .style('fill', _this.cardSettings.cardInformations.fields.fill)
-                        .text((d: string) => 
-                            Visual.fitTextInMaxWidth(
-                                d, 
-                                _this.cardSettings.cardInformations.fields.fontFamily, 
-                                _this.cardSettings.cardInformations.fields.fontSize, 
+                        .style('font-size', self.cardSettings.cardInformations.fields.fontSize)
+                        .style('font-family', self.cardSettings.cardInformations.fields.fontFamily)
+                        .style('fill', self.cardSettings.cardInformations.fields.fill)
+                        .text((field: string) => 
+                            self.fitTextInMaxWidth(
+                                field, 
+                                self.cardSettings.cardInformations.fields.fontFamily, 
+                                self.cardSettings.cardInformations.fields.fontSize, 
                                 contentWidth
                             )
                         );
@@ -448,14 +449,14 @@ export class Visual implements IVisual {
                         .attr('y', (_, i) => infoYPadding + valuesFontHeight + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
                         .attr('height', contentHeight)
                         .attr('width', contentWidth)
-                        .style('font-size', _this.cardSettings.cardInformations.values.fontSize)
-                        .style('font-family', _this.cardSettings.cardInformations.values.fontFamily)
-                        .style('fill', _this.cardSettings.cardInformations.values.fill)
-                        .html((d: any) => {
-                            return Visual.fitMultiLineLongText(
-                                d, 
-                                _this.cardSettings.cardInformations.values.fontFamily,
-                                _this.cardSettings.cardInformations.values.fontSize,
+                        .style('font-size', self.cardSettings.cardInformations.values.fontSize)
+                        .style('font-family', self.cardSettings.cardInformations.values.fontFamily)
+                        .style('fill', self.cardSettings.cardInformations.values.fill)
+                        .html((value: any) => {
+                            return self.fitMultiLineLongText(
+                                value, 
+                                self.cardSettings.cardInformations.values.fontFamily,
+                                self.cardSettings.cardInformations.values.fontSize,
                                 cardPadding, 
                                 contentWidth, 
                                 valuesFontHeight
@@ -475,25 +476,43 @@ export class Visual implements IVisual {
                 <ISelectionId[]>this.selectionManager.getSelectionIds()
             );
 
+            // Support highlight
+            cards
+                .each(function(d) {
+                    d3.select(this).style('opacity', self.cardSettings.cardBackground.opacity / (d.highlights ? 1 : 2));
+                });
+
             // Add listeners for tooltips and selection
             cards
-            .on('click', d => {
-                if(this.host.allowInteractions) {
-                    const isCtrlPressed: boolean = (<MouseEvent>d3Event).ctrlKey;
+                .on('click', d => {
+                    if(this.host.allowInteractions) {
+                        const isCtrlPressed: boolean = (<MouseEvent>d3Event).ctrlKey;
 
-                    this.selectionManager
-                        .select(d.selectionId, isCtrlPressed)
-                        .then((ids: ISelectionId[]) => {
-                            this.syncSelectionState(cards, ids);
-                        });
+                        this.selectionManager
+                            .select(d.selectionId, isCtrlPressed)
+                            .then((ids: ISelectionId[]) => {
+                                this.syncSelectionState(cards, ids);
+                            });
 
-                    (<Event>d3Event).stopPropagation;
-                }
-            });
+                        (<Event>d3Event).stopPropagation;
+                    }
+                });
 
             this.cardSelection
                 .exit()
                 .remove();
+
+            this.svg.on('contextmenu', () => {
+                const mouseEvent: MouseEvent = d3.event as MouseEvent;
+                const eventTarget: EventTarget = mouseEvent.target;
+                let dataPoint: any = d3.select(<d3.BaseType>eventTarget).datum();
+
+                this.selectionManager.showContextMenu(dataPoint ? dataPoint.selectionId : {}, {
+                    x: mouseEvent.clientX,
+                    y: mouseEvent.clientY
+                });
+                mouseEvent.preventDefault();
+            });
 
             this.events.renderingFinished(options);
     } 
@@ -520,7 +539,7 @@ export class Visual implements IVisual {
         return totalHeight;
     }
 
-    public static fitTextInMaxWidth(text: string, fontFamily: string, fontSize: string, cardWidth: number): string {
+    private fitTextInMaxWidth(text: string, fontFamily: string, fontSize: string, cardWidth: number): string {
         let textProperties: TextProperties = {
             text: text,
             fontFamily: fontFamily,
@@ -551,7 +570,7 @@ export class Visual implements IVisual {
     }
 
 
-    public static fitMultiLineLongText(text: string, fontFamily: string, fontSize: string, elementX: number, elementWidth: number, fontHeight: number): string {
+    private fitMultiLineLongText(text: string, fontFamily: string, fontSize: string, elementX: number, elementWidth: number, fontHeight: number): string {
         let textProperties: TextProperties = {
             text: text,
             fontFamily: fontFamily,
@@ -605,7 +624,7 @@ export class Visual implements IVisual {
     ): void {
         if(!selection || !selectionIds) return;
         if(!selectionIds.length) {
-            const opacity: number = 1 - (this.cardSettings.cardBackground.transparency / 100);
+            const opacity: number = this.cardSettings.cardBackground.opacity;
             selection.style('opacity', opacity);
 
             return;
@@ -617,8 +636,8 @@ export class Visual implements IVisual {
             const isSelected: boolean = self.isSelectionIdInArray(selectionIds, cardDataPoint.selectionId);
 
             const opacity: number = isSelected 
-                ? 1 - (self.cardSettings.cardBackground.transparency / 100)
-                : (1 - (self.cardSettings.cardBackground.transparency / 100)) / 2
+                ? self.cardSettings.cardBackground.opacity
+                : self.cardSettings.cardBackground.opacity / 2
 
             d3.select(this).style('opacity', opacity);
         })
