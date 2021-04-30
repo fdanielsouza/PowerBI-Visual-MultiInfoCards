@@ -25,6 +25,11 @@
 */
 "use strict";
 
+
+import {
+    event as d3Event,
+    select as d3Select
+} from "d3-selection";
 import { textMeasurementService, valueFormatter, interfaces } from "powerbi-visuals-utils-formattingutils";
 import TextProperties = interfaces.TextProperties;
 import { CardsInformationsSettings, CardsSettings, VisualSettings } from "./settings";
@@ -36,6 +41,7 @@ import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructor
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import IVisualHost = powerbi.extensibility.visual.IVisualHost;
+import IVisualEventService = powerbi.extensibility.IVisualEventService;
 import PrimitiveValue = powerbi.PrimitiveValue;
 import ISelectionId = powerbi.visuals.ISelectionId;
 import ISelectionManager = powerbi.extensibility.ISelectionManager;
@@ -50,8 +56,8 @@ import { dataViewObject } from "powerbi-visuals-utils-dataviewutils";
 import {createTooltipServiceWrapper, ITooltipServiceWrapper, TooltipServiceWrapper, touchStartEventName} from "powerbi-visuals-utils-tooltiputils";
 import { getLocalizedString } from "./localization/localizationHelper"
 
-
-type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
+type Selection<T1, T2 = T1> = d3.Selection<any, T1, any, T2>;
+//type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
 
 
 /**
@@ -85,6 +91,7 @@ interface CardDataPoint {
     tooltipFields?: string[];
     tooltipValues?: PrimitiveValue[];
     selectionId: ISelectionId;
+    selected: boolean;
 }
 
 
@@ -189,7 +196,8 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             image: images ? images.values[i] : null,
             tooltipFields: tooltips ? tooltips.map(tip => tip.source.displayName) : null,
             tooltipValues: tooltips ? tooltips.map(tip => formatDataViewValues(tip.values[i], getColumnDataType(tip.source.type), tip.source.format, cardSettings.cardInformations.values.displayUnits)) : null, 
-            selectionId: selectionId
+            selectionId: selectionId,
+            selected: false
         });
     }
 
@@ -229,10 +237,10 @@ function formatDataViewValues(value: any, type: string, format?: string, display
 export class Visual implements IVisual {
     private visualSettings: VisualSettings;
     private host: IVisualHost;
-    private locale: string;
+    private events: IVisualEventService;
     private selectionManager: ISelectionManager;
     private element: HTMLElement;
-    private svg: Selection<SVGElement>;
+    private svg: Selection<any>;
     private cardDataPoints: CardDataPoint[];
     private cardSettings: CardSettings;
     private tooltipServiceWrapper: ITooltipServiceWrapper;
@@ -240,10 +248,20 @@ export class Visual implements IVisual {
 
 
     constructor(options: VisualConstructorOptions) {
+        options.element.style.overflowY = 'Auto';
         this.host = options.host;
         this.element = options.element;
-        this.locale = options.host.locale;
+        this.events = options.host.eventService;
+        
         this.selectionManager = options.host.createSelectionManager();
+
+        this.selectionManager.registerOnSelectCallback(() => { 
+            this.syncSelectionState(
+                this.cardSelection, 
+                <ISelectionId[]>this.selectionManager.getSelectionIds()
+            )
+        });
+
         this.tooltipServiceWrapper = createTooltipServiceWrapper(this.host.tooltipService, options.element);
 
         this.svg = d3.select(options.element)
@@ -253,6 +271,10 @@ export class Visual implements IVisual {
 
 
     public update(options: VisualUpdateOptions) { 
+        this.events.renderingStarted(options);
+
+        let _this = this;
+
         d3.selectAll('.card').remove();
         d3.selectAll('.background').remove();
         d3.selectAll('.image').remove();
@@ -263,15 +285,15 @@ export class Visual implements IVisual {
         this.visualSettings = VisualSettings.parse<VisualSettings>(options.dataViews[0]);
         
         let viewModel: CardViewModel = visualTransform(options, this.host, this.visualSettings);
-        let settings = viewModel.settings;
+        this.cardSettings = viewModel.settings;
         this.cardDataPoints = viewModel.dataPoints;
 
-        // Having images should impact positioning of several elements, so this will be used further in logical tests
+        // Having images will impact positioning of several elements, so this will be used further in logical tests
         let hasImages = this.cardDataPoints.filter(p => p.image != null).length;
 
         let containerWidth = options.viewport.width;
         // Card width can be customized in between 150 and 1200
-        let cardWidth = d3.min([d3.max([150, settings.cardBackground.width]), 1200]);
+        let cardWidth = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
         let cardMargin = 5;
         let cardPadding = 15;
         let backgroundWidth = cardWidth - (2 * cardMargin);
@@ -286,16 +308,16 @@ export class Visual implements IVisual {
         if(containerWidth < cardWidth) return;
  
         // Calculate font heights for each kind of text, so spacing between elements can be calculated
-        let titleFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardTitle.fontFamily, settings.cardTitle.fontSize);
-        let fieldsFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.fields.fontFamily, settings.cardInformations.fields.fontSize);
-        let valuesFontHeight = Visual.calculateCardTextHeight('Power BI Sample Text', settings.cardInformations.values.fontFamily, settings.cardInformations.values.fontSize);
+        let titleFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardTitle.fontFamily, this.cardSettings.cardTitle.fontSize);
+        let fieldsFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardInformations.fields.fontFamily, this.cardSettings.cardInformations.fields.fontSize);
+        let valuesFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize);
 
         // Now calculate the needed number of lines for each information, so we can have the card each value height the longest one
         let informationHeights = this.cardDataPoints.map(p => p.values
-            .map(v => Visual.calculateMultiLineTextHeight(
+            .map(v => this.calculateMultiLineTextHeight(
                 v.toString(), 
-                settings.cardInformations.values.fontFamily, 
-                settings.cardInformations.values.fontSize, 
+                this.cardSettings.cardInformations.values.fontFamily, 
+                this.cardSettings.cardInformations.values.fontSize, 
                 contentWidth, 
                 valuesFontHeight
             )
@@ -315,25 +337,28 @@ export class Visual implements IVisual {
         let infoYPadding = cardPadding + (hasImages ? d3.max([imageHeight, titleFontHeight]) : titleFontHeight * 2);        
         
         
-        
-        
+
         let container = this.svg
-            .attr('height', Visual.calculateTotalSVGHeight(this.cardDataPoints.length, cardWidth, cardHeight, containerWidth))
+            .attr('height', this.calculateTotalSVGHeight(this.cardDataPoints.length, cardWidth, cardHeight, containerWidth))
             .attr('width', containerWidth);
         /*
                 Now we'll render each card on the screen and all of it's inner elements
         */
-        let cards = container
+        this.cardSelection = container
             .selectAll('.card')
-            .data(this.cardDataPoints)
+            .data(this.cardDataPoints);
+
+        const cards = this.cardSelection
             .enter()
-                .append('g')
-                .classed('card', true)
-                .attr('transform', (_, i) => Visual.positionCardInGrid(i, cardWidth, cardHeight, containerWidth));
+            .append('g')
+            .merge(<any>this.cardSelection);
+
+        cards
+            .classed('card', true)
+            .attr('transform', (_, i) => this.positionCardInGrid(i, cardWidth, cardHeight, containerWidth));
 
         cards
             .each(function(d) {
-
                 // Creates a background rect for each card
                 d3.select(this)
                     .selectAll('.background')
@@ -345,11 +370,11 @@ export class Visual implements IVisual {
                         .attr('y', cardMargin)
                         .attr('height', backgroundHeight)
                         .attr('width', backgroundWidth)
-                        .style('fill', settings.cardBackground.fill)
-                        .style('opacity', 1 - (settings.cardBackground.transparency / 100))
-                        .style('stroke', settings.cardBackground.border.color)
-                        .style('stroke-width', settings.cardBackground.border.width)
-                        .attr('rx', d3.min([15, settings.cardBackground.border.radius]));
+                        .style('fill', _this.cardSettings.cardBackground.fill)
+                        .style('opacity', 1 - (_this.cardSettings.cardBackground.transparency / 100))
+                        .style('stroke', _this.cardSettings.cardBackground.border.color)
+                        .style('stroke-width', _this.cardSettings.cardBackground.border.width)
+                        .attr('rx', d3.min([15, _this.cardSettings.cardBackground.border.radius]));
 
                 // At the top position of the card, each title
                 d3.select(this)
@@ -361,14 +386,14 @@ export class Visual implements IVisual {
                         .attr('x', titleXPadding)
                         .attr('y', titleYPadding)
                         .attr('width', titleWidth)
-                        .style('font-size', settings.cardTitle.fontSize)
-                        .style('font-family', settings.cardTitle.fontFamily)
-                        .style('fill', settings.cardTitle.fill)
+                        .style('font-size', _this.cardSettings.cardTitle.fontSize)
+                        .style('font-family', _this.cardSettings.cardTitle.fontFamily)
+                        .style('fill', _this.cardSettings.cardTitle.fill)
                         .text((t: string) => {
                             return Visual.fitTextInMaxWidth(
                                 t, 
-                                settings.cardTitle.fontFamily, 
-                                settings.cardTitle.fontSize, 
+                                _this.cardSettings.cardTitle.fontFamily, 
+                                _this.cardSettings.cardTitle.fontSize, 
                                 titleWidth
                             )
                         });
@@ -399,14 +424,14 @@ export class Visual implements IVisual {
                         .attr('y', (_, i) => infoYPadding + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
                         .attr('height', contentHeight)
                         .attr('width', contentWidth)
-                        .style('font-size', settings.cardInformations.fields.fontSize)
-                        .style('font-family', settings.cardInformations.fields.fontFamily)
-                        .style('fill', settings.cardInformations.fields.fill)
-                        .text(d => 
+                        .style('font-size', _this.cardSettings.cardInformations.fields.fontSize)
+                        .style('font-family', _this.cardSettings.cardInformations.fields.fontFamily)
+                        .style('fill', _this.cardSettings.cardInformations.fields.fill)
+                        .text((d: string) => 
                             Visual.fitTextInMaxWidth(
                                 d, 
-                                settings.cardInformations.fields.fontFamily, 
-                                settings.cardInformations.fields.fontSize, 
+                                _this.cardSettings.cardInformations.fields.fontFamily, 
+                                _this.cardSettings.cardInformations.fields.fontSize, 
                                 contentWidth
                             )
                         );
@@ -423,14 +448,14 @@ export class Visual implements IVisual {
                         .attr('y', (_, i) => infoYPadding + valuesFontHeight + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
                         .attr('height', contentHeight)
                         .attr('width', contentWidth)
-                        .style('font-size', settings.cardInformations.values.fontSize)
-                        .style('font-family', settings.cardInformations.values.fontFamily)
-                        .style('fill', settings.cardInformations.values.fill)
+                        .style('font-size', _this.cardSettings.cardInformations.values.fontSize)
+                        .style('font-family', _this.cardSettings.cardInformations.values.fontFamily)
+                        .style('fill', _this.cardSettings.cardInformations.values.fill)
                         .html((d: any) => {
                             return Visual.fitMultiLineLongText(
                                 d, 
-                                settings.cardInformations.values.fontFamily,
-                                settings.cardInformations.values.fontSize,
+                                _this.cardSettings.cardInformations.values.fontFamily,
+                                _this.cardSettings.cardInformations.values.fontSize,
                                 cardPadding, 
                                 contentWidth, 
                                 valuesFontHeight
@@ -438,22 +463,39 @@ export class Visual implements IVisual {
                         });
             });
 
-
-            // Add listeners for tooltips and selection
-            this.svg.selectAll('.card')
-                .on('click', d => this.selectionManager.select(d.selectionId));
-
             this.tooltipServiceWrapper.addTooltip(
-                this.svg.selectAll('.card'),
+                cards,
                 (datapoint: CardDataPoint) => this.getTooltipData(datapoint),
                 (datapoint: CardDataPoint) => datapoint.selectionId,
                 false
             );
 
+            this.syncSelectionState(
+                cards, 
+                <ISelectionId[]>this.selectionManager.getSelectionIds()
+            );
 
+            // Add listeners for tooltips and selection
             cards
+            .on('click', d => {
+                if(this.host.allowInteractions) {
+                    const isCtrlPressed: boolean = (<MouseEvent>d3Event).ctrlKey;
+
+                    this.selectionManager
+                        .select(d.selectionId, isCtrlPressed)
+                        .then((ids: ISelectionId[]) => {
+                            this.syncSelectionState(cards, ids);
+                        });
+
+                    (<Event>d3Event).stopPropagation;
+                }
+            });
+
+            this.cardSelection
                 .exit()
                 .remove();
+
+            this.events.renderingFinished(options);
     } 
 
     public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
@@ -464,7 +506,7 @@ export class Visual implements IVisual {
 
 
     // My own methods to deal with sizing stuff
-    public static positionCardInGrid(position: number, elementWidth: number, elementHeight: number, containerWidth: number): string {
+    private positionCardInGrid(position: number, elementWidth: number, elementHeight: number, containerWidth: number): string {
         let maxPerRow: number = Math.floor(containerWidth / elementWidth);
         let x: number = (position - (maxPerRow * Math.floor(position / maxPerRow))) * elementWidth;
         let y: number = Math.floor(position / maxPerRow) * elementHeight;
@@ -472,7 +514,7 @@ export class Visual implements IVisual {
         return 'translate('+ x +', '+ y +')';
     }
 
-    public static calculateTotalSVGHeight(dataLength: number, elementWidth: number, elementHeight: number, containerWidth: number): number {
+    private calculateTotalSVGHeight(dataLength: number, elementWidth: number, elementHeight: number, containerWidth: number): number {
         let totalHeight: number = Math.ceil(dataLength / Math.floor(containerWidth / elementWidth)) * elementHeight;
 
         return totalHeight;
@@ -489,7 +531,7 @@ export class Visual implements IVisual {
     }
 
 
-    public static separateTextInLines(text: string, maxLineLength: number): string[] {
+    private static separateTextInLines(text: string, maxLineLength: number): string[] {
         let splittedWords: string[] = text.split(' ')
             .map((word) => word.match(new RegExp('.{1,' + maxLineLength + '}', 'g')))
             .reduce((accWords, word) => accWords.concat(word), []);
@@ -529,7 +571,7 @@ export class Visual implements IVisual {
         return multiLineHtmlText;
     }
 
-    public static calculateCardTextHeight(text: string, fontFamily: string, fontSize: string): number {
+    private calculateCardTextHeight(text: string, fontFamily: string, fontSize: string): number {
         let textProperties: TextProperties = {
             text: text,
             fontFamily: fontFamily,
@@ -539,7 +581,7 @@ export class Visual implements IVisual {
         return textMeasurementService.measureSvgTextHeight(textProperties);
     }
 
-    public static calculateMultiLineTextHeight(text: string, fontFamily: string, fontSize: string, cardWidth: number, fontHeight: number): number {
+    private calculateMultiLineTextHeight(text: string, fontFamily: string, fontSize: string, cardWidth: number, fontHeight: number): number {
         let textProperties: TextProperties = {
             text: text,
             fontFamily: fontFamily,
@@ -557,6 +599,44 @@ export class Visual implements IVisual {
 
 
     // Helper methods for selection, tooltips, etc
+    private syncSelectionState(
+        selection: Selection<CardDataPoint>, 
+        selectionIds: ISelectionId[]
+    ): void {
+        if(!selection || !selectionIds) return;
+        if(!selectionIds.length) {
+            const opacity: number = 1 - (this.cardSettings.cardBackground.transparency / 100);
+            selection.style('opacity', opacity);
+
+            return;
+        }
+
+        const self: this = this;
+
+        selection.each(function(cardDataPoint: CardDataPoint) {
+            const isSelected: boolean = self.isSelectionIdInArray(selectionIds, cardDataPoint.selectionId);
+
+            const opacity: number = isSelected 
+                ? 1 - (self.cardSettings.cardBackground.transparency / 100)
+                : (1 - (self.cardSettings.cardBackground.transparency / 100)) / 2
+
+            d3.select(this).style('opacity', opacity);
+        })
+    }
+
+
+    private isSelectionIdInArray(selectionIds: ISelectionId[], selectionId: ISelectionId): boolean {
+        if (!selectionIds || !selectionId) {
+            return false;
+        }
+
+        return selectionIds.some((currentSelectionId: ISelectionId) => {
+            return currentSelectionId.includes(selectionId);
+        });
+    }
+
+
+
     private getTooltipData(value: CardDataPoint): VisualTooltipDataItem[] {
         let fields = value.fields.concat(value.tooltipFields);
         let values = value.values.concat(value.tooltipValues);
