@@ -3,7 +3,12 @@
         {
             "displayName": "Titles",
             "name": "title",
-            "kind": "Grouping"
+            "kind": "Grouping",
+            "preferredTypes": [
+                {
+                    "text": true
+                }
+            ]
         },
         {
             "displayName": "Informations",
@@ -13,7 +18,12 @@
         {
             "displayName": "Images",
             "name": "images",
-            "kind": "Measure"
+            "kind": "Measure",
+            "preferredTypes": [
+                {
+                    "text": true
+                }
+            ]
         },
         {
             "displayName": "Tooltips",
