@@ -211,6 +211,29 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     }
 }
 
+
+function getPaletteProperty(
+    elementKind: string, 
+    palette: ISandBoxExtendedColorPallete, 
+    defaultValue: any
+): any {
+    if(palette.isHighContrast) {
+        switch(elementKind) {
+            case 'background':
+                return palette.background.value;
+            case 'foreground':
+                return palette.foreground.value;
+            case 'foregroundSelected':
+                return palette.foregroundSelected.value;
+            case 'strokeWidth':
+                return 2;
+        }
+    };
+
+    return defaultValue;
+}
+
+
 function getColumnDataType(columnTypes: powerbi.ValueTypeDescriptor): string {
     if(columnTypes.bool) return 'bool';
     if(columnTypes.text) return 'text';
@@ -235,27 +258,6 @@ function formatDataViewValues(value: any, type: string, format?: string, display
     } else {
         return value;
     }
-}
-
-function getPaletteProperty(
-    elementKind: string, 
-    palette: ISandBoxExtendedColorPallete, 
-    defaultValue: any
-): any {
-    if(palette.isHighContrast) {
-        switch(elementKind) {
-            case 'background':
-                return palette.background.value;
-            case 'foreground':
-                return palette.foreground.value;
-            case 'foregroundSelected':
-                return palette.foregroundSelected.value;
-            case 'strokeWidth':
-                return 2;
-        }
-    };
-
-    return defaultValue;
 }
 
 
@@ -315,11 +317,13 @@ export class Visual implements IVisual {
         // Having images will impact positioning of several elements, so this will be used further in logical tests
         let hasImages = this.cardDataPoints.filter(p => p.image != null).length;
 
-        let containerWidth = options.viewport.width;
-        // Card width can be customized in between 150 and 1200
-        let cardWidth = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
+        // Static size values
         let cardMargin = 5;
         let cardPadding = 15;
+
+        // Dynamic size values
+        let containerWidth = options.viewport.width;
+        let cardWidth = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
         let backgroundWidth = cardWidth - (2 * cardMargin);
         let contentWidth = cardWidth - (2 * cardPadding);
         let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 150));
@@ -331,21 +335,15 @@ export class Visual implements IVisual {
         // If the entire container is thinner than a single card, just return... or a lot of NaN and Inf should raise in position calcs
         if(containerWidth < cardWidth) return;
  
-        // Calculate font heights for each kind of text, so spacing between elements can be calculated
+        // Calculate font heights for each kind of text, so we can set correct spacing between elements
         let titleFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardTitle.fontFamily, this.cardSettings.cardTitle.fontSize);
         let fieldsFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardInformations.fields.fontFamily, this.cardSettings.cardInformations.fields.fontSize);
         let valuesFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize);
 
-        // Now calculate the needed number of lines for each information, so we can have the card each value height the longest one
-        let informationHeights = this.cardDataPoints.map(p => p.values
-            .map(v => this.calculateMultiLineTextHeight(
-                v.toString(), 
-                this.cardSettings.cardInformations.values.fontFamily, 
-                this.cardSettings.cardInformations.values.fontSize, 
-                contentWidth, 
-                valuesFontHeight
-            )
-        ));
+        // Gets the needed height to display each block of information
+        let informationHeights = this.cardDataPoints.map(p => 
+            this.calculateInformationHeights(p, this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize, contentWidth, valuesFontHeight)
+        );
         let longestHeights = d3.transpose(informationHeights).map(i => i.reduce((a: number, b: number) => a > b ? a + 2 : b + 2));
         let totalLongestHeight = longestHeights.reduce<number>((a: number, b:number) => a + b, 0)
         
@@ -545,7 +543,6 @@ export class Visual implements IVisual {
     }
 
 
-
     // My own methods to deal with sizing stuff
     private positionCardInGrid(position: number, elementWidth: number, elementHeight: number, containerWidth: number): string {
         let maxPerRow: number = Math.floor(containerWidth / elementWidth);
@@ -636,6 +633,16 @@ export class Visual implements IVisual {
         let totalTextHeight: number = splittedText.length * fontHeight;
 
         return totalTextHeight;
+    }
+
+    private calculateInformationHeights(
+        information: CardDataPoint, fontFamily: string, fontSize: string, maxWidth: number, fontHeight: number
+    ): any[] {
+        let heights = information.values.map(
+            v => this.calculateMultiLineTextHeight(v.toString(), fontFamily, fontSize, maxWidth, fontHeight)
+        );
+
+        return heights;
     }
 
     private getElementOpacity(transparency: number, highlighted: boolean) {
