@@ -27,15 +27,5 @@
     "tslint": "^5.18.0",
     "tslint-microsoft-contrib": "^6.2.0",
     "typescript": "3.6.3"
-  },
-  "author": {
-    "name": "Francisco Daniel Souza Fernandes",
-    "email": "f.daniel.souza@hotmail.com"
-  },
-  "visual": {
-    "name": "multiInfoCards",
-    "version": "1.0.0",
-    "description": "Looks like the multi row card, but column oriented. Has a mandatory category and can show up to 8 measures and an image",
-    "supportUrl": "https://fdanielsouza.github.io/"
   }
 }
