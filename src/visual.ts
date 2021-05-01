@@ -46,13 +46,14 @@ import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import VisualObjectInstance = powerbi.VisualObjectInstance;
+import ISandBoxExtendedColorPallete = powerbi.extensibility.ISandboxExtendedColorPalette;
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import DataView = powerbi.DataView;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import * as d3 from "d3";
 import { dataViewObject } from "powerbi-visuals-utils-dataviewutils";
 import {createTooltipServiceWrapper, ITooltipServiceWrapper, TooltipServiceWrapper, touchStartEventName} from "powerbi-visuals-utils-tooltiputils";
-import { getLocalizedString } from "./localization/localizationHelper"
+
 
 type Selection<T1, T2 = T1> = d3.Selection<any, T1, any, T2>;
 //type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
@@ -79,6 +80,7 @@ interface CardViewModel {
  * @property { PrimitiveValue[] } values                    - Values of fields in the card
  * @property { PrimitiveValue} image                        - An optional image in the card
  * @property { TooltipItemFields } tooltips                 - Field to store aditional tooltip items
+ * @property { boolean } highlights                         - Boolean indicator of highlighting of values
  * @property { ISelectionId } selectionId                   - Id assigned for visual interaction
  */
 interface CardDataPoint {
@@ -97,7 +99,7 @@ interface CardSettings {
     cardBackground: {
         width: number,
         fill: string,
-        opacity: number,
+        transparency: number,
         border: {
             width: string,
             color: string,
@@ -144,33 +146,33 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
         return viewModel;
     }
 
-
+    const palette: ISandBoxExtendedColorPallete = host.colorPalette;
     let cardSettings: CardSettings = {
         cardBackground: {
             width: visualSettings.cards.cardWidth,
-            fill: visualSettings.cards.backgroundColor,
-            opacity: 1 - (visualSettings.cards.backgroundTransparency / 100),
+            fill: getPaletteProperty('background', palette, visualSettings.cards.backgroundColor),
+            transparency: visualSettings.cards.backgroundTransparency,
             border: {
-                width: visualSettings.cards.strokeWidth + "px",
-                color: visualSettings.cards.borderColor,
+                width: getPaletteProperty('strokeWidth', palette, visualSettings.cards.strokeWidth) + "px",
+                color: getPaletteProperty('foreground', palette, visualSettings.cards.borderColor),
                 radius: visualSettings.cards.borderRadius
             }
         },   
         cardTitle: {
-            fontSize: visualSettings.cardsTitles.titleFontSize + "px",
+            fontSize: visualSettings.cardsTitles.titleFontSize + "pt",
             fontFamily: visualSettings.cardsTitles.fontFamily,
-            fill: visualSettings.cardsTitles.fontColor
+            fill: getPaletteProperty('foreground', palette, visualSettings.cardsTitles.fontColor)
         },
         cardInformations: {
             fields: {
-                fontSize: visualSettings.cardsInformations.fontSize + "px",
+                fontSize: visualSettings.cardsInformations.fontSize + "pt",
                 fontFamily: visualSettings.cardsInformations.fieldsFontFamily,
-                fill: visualSettings.cardsInformations.fieldsFontColor
+                fill: getPaletteProperty('foreground', palette, visualSettings.cardsInformations.fieldsFontColor)
             },
             values: {
-                fontSize: visualSettings.cardsInformations.secFontSize + "px",
+                fontSize: visualSettings.cardsInformations.secFontSize + "pt",
                 fontFamily: visualSettings.cardsInformations.valuesFontFamily,
-                fill: visualSettings.cardsInformations.valuesFontColor,
+                fill: getPaletteProperty('foreground', palette, visualSettings.cardsInformations.valuesFontColor),
                 displayUnits: visualSettings.cardsInformations.valuesDisplayUnits
             }
         }   
@@ -182,7 +184,6 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     let images = dataView.categorical.values.filter(value => value.source.roles.images == true)[0] || null;
     let tooltips = dataView.categorical.values.filter(value => value.source.roles.tooltips == true);
     let highlights = dataView.categorical.values[0].highlights || null;
-
     let cardDataPoints: CardDataPoint[] = [];
 
 
@@ -199,7 +200,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             image: images ? images.values[i] : null,
             tooltipFields: tooltips ? tooltips.map(tip => tip.source.displayName) : null,
             tooltipValues: tooltips ? tooltips.map(tip => formatDataViewValues(tip.values[i], getColumnDataType(tip.source.type), tip.source.format, cardSettings.cardInformations.values.displayUnits)) : null, 
-            highlights: highlights ? highlights[i] != null : true,
+            highlights: highlights ? !!highlights[i] : true,
             selectionId: selectionId
         });
     }
@@ -234,6 +235,27 @@ function formatDataViewValues(value: any, type: string, format?: string, display
     } else {
         return value;
     }
+}
+
+function getPaletteProperty(
+    elementKind: string, 
+    palette: ISandBoxExtendedColorPallete, 
+    defaultValue: any
+): any {
+    if(palette.isHighContrast) {
+        switch(elementKind) {
+            case 'background':
+                return palette.background.value;
+            case 'foreground':
+                return palette.foreground.value;
+            case 'foregroundSelected':
+                return palette.foregroundSelected.value;
+            case 'strokeWidth':
+                return 2;
+        }
+    };
+
+    return defaultValue;
 }
 
 
@@ -479,7 +501,7 @@ export class Visual implements IVisual {
             // Support highlight
             cards
                 .each(function(d) {
-                    d3.select(this).style('opacity', self.cardSettings.cardBackground.opacity / (d.highlights ? 1 : 2));
+                    d3.select(this).style('opacity', self.getElementOpacity(self.cardSettings.cardBackground.transparency, d.highlights));
                 });
 
             // Add listeners for tooltips and selection
@@ -616,6 +638,10 @@ export class Visual implements IVisual {
         return totalTextHeight;
     }
 
+    private getElementOpacity(transparency: number, highlighted: boolean) {
+        return (1 - (transparency / 100)) * (highlighted ? 1 : 0.4);
+    }
+
 
     // Helper methods for selection, tooltips, etc
     private syncSelectionState(
@@ -624,20 +650,16 @@ export class Visual implements IVisual {
     ): void {
         if(!selection || !selectionIds) return;
         if(!selectionIds.length) {
-            const opacity: number = this.cardSettings.cardBackground.opacity;
+            const opacity: number = this.getElementOpacity(this.cardSettings.cardBackground.transparency, true);
             selection.style('opacity', opacity);
 
             return;
         }
-
         const self: this = this;
 
         selection.each(function(cardDataPoint: CardDataPoint) {
             const isSelected: boolean = self.isSelectionIdInArray(selectionIds, cardDataPoint.selectionId);
-
-            const opacity: number = isSelected 
-                ? self.cardSettings.cardBackground.opacity
-                : self.cardSettings.cardBackground.opacity / 2
+            const opacity: number = self.getElementOpacity(self.cardSettings.cardBackground.transparency, isSelected)
 
             d3.select(this).style('opacity', opacity);
         })
