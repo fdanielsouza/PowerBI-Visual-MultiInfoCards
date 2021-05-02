@@ -38,9 +38,9 @@ export class VisualSettings extends DataViewObjectsParser {
 
 export class CardsSettings {
       // Default card width
-      public cardWidth: number = 220;
+      public cardWidth: number = 280;
       // Default background color
-      public backgroundColor: string = "#F7F7F7";
+      public backgroundColor: string = "#FFFFFF";
       // Default background transparency
       public backgroundTransparency: number = 0;
       // Default border width
@@ -53,9 +53,9 @@ export class CardsSettings {
 
 export class CardsTitlesSettings {
       // Default font size
-      public titleFontSize: number = 10;
+      public titleFontSize: number = 12;
       // Default font family
-      public fontFamily: string = "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif";
+      public fontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
       // Default font color
       public fontColor: string = "black";
 }
@@ -64,13 +64,13 @@ export class CardsInformationsSettings {
       // Default information name font size
       public fontSize: number = 10;
       // Default information name font family
-      public fieldsFontFamily: string = "wf_standard-font, helvetica, arial, sans-serif";
+      public fieldsFontFamily: string = "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif";
       // Default information name font color
       public fieldsFontColor: string = "#666666";
       // Default information value font size
       public secFontSize: number = 10;
       // Default information value font family
-      public valuesFontFamily: string = "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif";
+      public valuesFontFamily: string = "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif";
       // Default information value font color
       public valuesFontColor: string = "black";
       // Default information numeric display units

@@ -139,8 +139,6 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     if(!dataView
         || !dataView
         || !dataView.categorical
-        || !dataView.categorical.categories
-        || !dataView.categorical.categories[0].source
         || !dataView.categorical.values
     ) {
         return viewModel;
@@ -271,6 +269,9 @@ export class Visual implements IVisual {
     private cardDataPoints: CardDataPoint[];
     private cardSettings: CardSettings;
     private tooltipServiceWrapper: ITooltipServiceWrapper;
+    private isLandingPageOn: boolean;
+    private LandingPageRemoved: boolean;
+    private LandingPage: Selection<any>;
     private cardSelection: d3.Selection<d3.BaseType, any, d3.BaseType, any>
 
 
@@ -299,6 +300,7 @@ export class Visual implements IVisual {
 
     public update(options: VisualUpdateOptions) { 
         this.events.renderingStarted(options);
+        this.HandleLandingPage(options);
         let self: this = this;
 
         d3.selectAll('.card').remove();
@@ -326,11 +328,11 @@ export class Visual implements IVisual {
         let cardWidth = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
         let backgroundWidth = cardWidth - (2 * cardMargin);
         let contentWidth = cardWidth - (2 * cardPadding);
-        let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 150));
-        let imageHeight = 24 * (0.5 + Math.floor(cardWidth / 150));
+        let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 100));
+        let imageHeight = 24 * (0.5 + Math.floor(cardWidth / 100));
         // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
         let titleWidth = hasImages ? contentWidth - imageWidth - 20 : contentWidth;
-        let titleXPadding = hasImages ? cardPadding + 20 + imageWidth : cardPadding;
+        let titleXPadding = hasImages ? cardPadding + 10 + imageWidth : cardPadding;
 
         // If the entire container is thinner than a single card, just return... or a lot of NaN and Inf should raise in position calcs
         if(containerWidth < cardWidth) return;
@@ -350,7 +352,7 @@ export class Visual implements IVisual {
         // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
         let cardHeight = 30 + totalLongestHeight 
             + (fieldsFontHeight * this.cardDataPoints[0].fields.length)
-            + (hasImages ? d3.max([titleFontHeight, 24 * (0.5 + Math.floor(cardWidth / 150))]) : titleFontHeight * 2)
+            + (hasImages ? d3.max([titleFontHeight, imageHeight]) : titleFontHeight * 2)
         
         let backgroundHeight = cardHeight - (2 * cardMargin);
         let contentHeight = cardHeight - (2 * cardPadding);
@@ -698,6 +700,49 @@ export class Visual implements IVisual {
             })
         }
         return tooltip;
+    }
+
+    private HandleLandingPage(options: VisualUpdateOptions) {
+        if(!options.dataViews || !options.dataViews.length) {
+            if(!this.isLandingPageOn) {
+                this.isLandingPageOn = true;
+                const LandingPage: Element = this.createLandingPage();
+                this.element.appendChild(LandingPage);
+                this.LandingPage = d3Select(LandingPage);
+            }
+         } else {
+            if(this.isLandingPageOn && !this.LandingPageRemoved) {
+                this.isLandingPageOn = false;
+                this.LandingPageRemoved = true;
+                this.LandingPage.remove();
+            }
+        }
+    }
+
+    private createLandingPage(): Element {
+        let div = document.createElement('div');
+        div.setAttribute('class', 'LandingPage');
+
+        let header = document.createElement('h1');
+        header.textContent = 'How to use this visual';
+        div.appendChild(header);
+
+        let generalRules = [
+            'Using a field for titles is mandatory',
+            'Avoid using boolean measure in values with highlight mode'
+        ];
+
+        let list = document.createElement('ul');
+        div.appendChild(list);
+
+        generalRules.forEach(r => {
+            let item = document.createElement('li');
+            list.appendChild(item);
+            item.textContent = r;
+        });
+
+        return div;
+
     }
 }
 
