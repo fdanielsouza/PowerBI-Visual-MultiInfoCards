@@ -28,7 +28,7 @@
 
 import { event as d3Event, select as d3Select } from "d3-selection";
 const getEvent = () => require("d3-selection").events;
-import { textMeasurementService, valueFormatter, interfaces } from "powerbi-visuals-utils-formattingutils";
+import { textMeasurementService, valueFormatter, stringExtensions, interfaces } from "powerbi-visuals-utils-formattingutils";
 import TextProperties = interfaces.TextProperties;
 import { CardsInformationsSettings, CardsSettings, VisualSettings } from "./settings";
 import "core-js/stable";
@@ -144,6 +144,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
         return viewModel;
     }
 
+
     const palette: ISandBoxExtendedColorPallete = host.colorPalette;
     let cardSettings: CardSettings = {
         cardBackground: {
@@ -177,7 +178,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     }
 
 
-    let titles = dataView.categorical.categories[0].values;
+    let titles = dataView.categorical.categories[0];
     let informations = dataView.categorical.values.filter(value => value.source.roles.informations == true);
     let images = dataView.categorical.values.filter(value => value.source.roles.images == true)[0] || null;
     let tooltips = dataView.categorical.values.filter(value => value.source.roles.tooltips == true);
@@ -185,14 +186,13 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     let cardDataPoints: CardDataPoint[] = [];
 
 
-    
-    for (let i = 0; i < titles.length; i++) {
+    for (let i = 0; i < titles.values.length; i++) {
         const selectionId: ISelectionId = host.createSelectionIdBuilder()
             .withCategory(dataView.categorical.categories[0], i)
             .createSelectionId();
 
         cardDataPoints.push({
-            title: titles[i],
+            title: formatDataViewValues(titles.values[i], getColumnDataType(titles.source.type), titles.source.format, cardSettings.cardInformations.values.displayUnits),
             fields: informations.map(info => info.source.displayName),
             values: informations.map(info => formatDataViewValues(info.values[i], getColumnDataType(info.source.type), info.source.format, cardSettings.cardInformations.values.displayUnits)),
             image: images ? images.values[i] : null,
@@ -244,18 +244,22 @@ function getColumnDataType(columnTypes: powerbi.ValueTypeDescriptor): string {
 }
 
 function formatDataViewValues(value: any, type: string, format?: string, displayUnits?: string): any {
+    let result: any;
+
     if (format != null && type != 'dateTime') {
         let iValueFormatter = valueFormatter.create({ format: format });
-        return iValueFormatter.format(value);
+        result = iValueFormatter.format(value);
     } else if (format != null && type == 'dateTime') {
         let iValueFormatter = valueFormatter.create({ format: format });
-        return iValueFormatter.format(d3.isoParse(value));
+        result = iValueFormatter.format(d3.isoParse(value));
     } else if (type == 'numeric') {
         let iValueFormatter = valueFormatter.create({ value: displayUnits });
-        return iValueFormatter.format(value);
+        result = iValueFormatter.format(value);
     } else {
-        return value;
+        result = value;
     }
+
+    return stringExtensions.isNullOrEmpty(result) ? '(Blank)' : result;
 }
 
 
@@ -346,9 +350,9 @@ export class Visual implements IVisual {
         let informationHeights = this.cardDataPoints.map(p => 
             this.calculateInformationHeights(p, this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize, contentWidth, valuesFontHeight)
         );
-        let longestHeights = d3.transpose(informationHeights).map(i => i.reduce((a: number, b: number) => a > b ? a + 2 : b + 2));
+        let longestHeights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 2);
         let totalLongestHeight = longestHeights.reduce<number>((a: number, b:number) => a + b, 0)
-        
+
         // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
         let cardHeight = 30 + totalLongestHeight 
             + (fieldsFontHeight * this.cardDataPoints[0].fields.length)
