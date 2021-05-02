@@ -729,6 +729,7 @@ export class Visual implements IVisual {
 
         let generalRules = [
             'Using a field for titles is mandatory',
+            'To show up data, you need either a value field or an image',
             'Avoid using boolean measure in values with highlight mode'
         ];
 

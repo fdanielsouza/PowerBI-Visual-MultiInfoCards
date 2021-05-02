@@ -33,7 +33,7 @@
     ],
     "objects": {
         "cards": {
-            "displayName": "Cards Properties",
+            "displayName": "Cards",
             "description": "Properties applied to each card",
             "properties": {
                 "cardWidth": {
@@ -44,7 +44,7 @@
                     }
                 },
                 "backgroundColor": {
-                    "displayName": "Background Color",
+                    "displayName": "Background color",
                     "type": {
                         "fill": {
                             "solid": {
@@ -54,19 +54,19 @@
                     }
                 },
                 "backgroundTransparency": {
-                    "displayName": "Background Transparency",
+                    "displayName": "Transparency",
                     "type": {
                         "numeric": true
                     }
                 },
                 "strokeWidth": {
-                    "displayName": "Border Width",
+                    "displayName": "Border width",
                     "type": {
                         "numeric": true
                     }
                 },
                 "borderColor": {
-                    "displayName": "Border Color",
+                    "displayName": "Border color",
                     "type": {
                         "fill": {
                             "solid": {
@@ -76,7 +76,7 @@
                     }
                 },
                 "borderRadius": {
-                    "displayName": "Border Radius",
+                    "displayName": "Border radius",
                     "description": "Border radius between 0 and 15 (in px)",
                     "type": {
                         "numeric": true
@@ -85,10 +85,10 @@
             }
         },
         "cardsTitles": {
-            "displayName": "Cards Titles Properties",
+            "displayName": "Cards titles",
             "properties": {
                 "titleFontSize": {
-                    "displayName": "Text Size",
+                    "displayName": "Text size",
                     "type": {
                         "formatting": {
                             "fontSize": true
@@ -104,7 +104,7 @@
                     }
                 },
                 "fontColor": {
-                    "displayName": "Font Color",
+                    "displayName": "Font color",
                     "type": {
                         "fill": {
                             "solid": {
@@ -115,10 +115,10 @@
                 }
             }
         },"cardsInformations": {
-            "displayName": "Cards Informations Properties",
+            "displayName": "Informations",
             "properties": {
                 "fontSize": {
-                    "displayName": "Information Field Text Size",
+                    "displayName": "Fields text size",
                     "type": {
                         "formatting": {
                             "fontSize": true
@@ -126,7 +126,7 @@
                     }
                 },
                 "fieldsFontFamily": {
-                    "displayName": "Information Field Font family",
+                    "displayName": "Fields font family",
                     "type": {
                         "formatting": {
                             "fontFamily": true
@@ -134,7 +134,7 @@
                     }
                 },
                 "fieldsFontColor": {
-                    "displayName": "Information Field Font Color",
+                    "displayName": "Fields font color",
                     "type": {
                         "fill": {
                             "solid": {
@@ -144,7 +144,7 @@
                     }
                 },
                 "secFontSize": {
-                    "displayName": "Information Value Text Size",
+                    "displayName": "Values text size",
                     "type": {
                         "formatting": {
                             "fontSize": true
@@ -152,7 +152,7 @@
                     }
                 },
                 "valuesFontFamily": {
-                    "displayName": "Font family",
+                    "displayName": "Values font family",
                     "type": {
                         "formatting": {
                             "fontFamily": true
@@ -160,7 +160,7 @@
                     }
                 },
                 "valuesFontColor": {
-                    "displayName": "Info Value Font Color",
+                    "displayName": "Values font color",
                     "type": {
                         "fill": {
                             "solid": {
@@ -170,7 +170,7 @@
                     }
                 },
                 "valuesDisplayUnits": {
-                    "displayName": "Numeric Info Value Units",
+                    "displayName": "Values display units",
                     "description": "Change the display units format when information is numeric",
                     "type": {
                         "formatting": {
