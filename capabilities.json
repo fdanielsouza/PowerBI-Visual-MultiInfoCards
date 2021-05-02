@@ -236,6 +236,9 @@
             }
         }
     ],
+    "sorting": {
+        "default": {}
+    },
     "supportsHighlight": true,
     "supportsLandingPage": true
 }

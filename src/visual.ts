@@ -245,16 +245,17 @@ function getColumnDataType(columnTypes: powerbi.ValueTypeDescriptor): string {
 
 function formatDataViewValues(value: any, type: string, format?: string, displayUnits?: string): any {
     let result: any;
-
-    if (format != null && type != 'dateTime') {
+    if (value == null) {
+        result = null;
+    } else if (type == "numeric" && (format == "0" || format == null)) {
+        let iValueFormatter = valueFormatter.create({ value: displayUnits });
+        result = iValueFormatter.format(value);
+    } else if (format != null && type != 'dateTime') {
         let iValueFormatter = valueFormatter.create({ format: format });
         result = iValueFormatter.format(value);
     } else if (format != null && type == 'dateTime') {
         let iValueFormatter = valueFormatter.create({ format: format });
         result = iValueFormatter.format(d3.isoParse(value));
-    } else if (type == 'numeric') {
-        let iValueFormatter = valueFormatter.create({ value: displayUnits });
-        result = iValueFormatter.format(value);
     } else {
         result = value;
     }
@@ -350,7 +351,7 @@ export class Visual implements IVisual {
         let informationHeights = this.cardDataPoints.map(p => 
             this.calculateInformationHeights(p, this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize, contentWidth, valuesFontHeight)
         );
-        let longestHeights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 2);
+        let longestHeights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 5);
         let totalLongestHeight = longestHeights.reduce<number>((a: number, b:number) => a + b, 0)
 
         // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
@@ -728,6 +729,8 @@ export class Visual implements IVisual {
         div.setAttribute('class', 'LandingPage');
 
         let header = document.createElement('h1');
+        header.setAttribute('class', 'LandingPageText');
+        header.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
         header.textContent = 'How to use this visual';
         div.appendChild(header);
 
@@ -742,9 +745,13 @@ export class Visual implements IVisual {
 
         generalRules.forEach(r => {
             let item = document.createElement('li');
+            item.setAttribute('class', 'LandingPageText');
+            item.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
+            item.style.fontSize = "14pt"
             list.appendChild(item);
             item.textContent = r;
         });
+        
 
         return div;
 
