@@ -329,8 +329,8 @@ export class Visual implements IVisual {
         let cardPadding = 15;
 
         // Dynamic size values
-        let containerWidth = options.viewport.width;
         let cardWidth = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
+        let containerWidth = d3.max([cardWidth, options.viewport.width])
         let backgroundWidth = cardWidth - (2 * cardMargin);
         let contentWidth = cardWidth - (2 * cardPadding);
         let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 100));
@@ -339,8 +339,6 @@ export class Visual implements IVisual {
         let titleWidth = hasImages ? contentWidth - imageWidth - 20 : contentWidth;
         let titleXPadding = hasImages ? cardPadding + 10 + imageWidth : cardPadding;
 
-        // If the entire container is thinner than a single card, just return... or a lot of NaN and Inf should raise in position calcs
-        if(containerWidth < cardWidth) return;
  
         // Calculate font heights for each kind of text, so we can set correct spacing between elements
         let titleFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardTitle.fontFamily, this.cardSettings.cardTitle.fontSize);
@@ -400,6 +398,7 @@ export class Visual implements IVisual {
                         .attr('height', backgroundHeight)
                         .attr('width', backgroundWidth)
                         .style('fill', self.cardSettings.cardBackground.fill)
+                        .style('opacity', (1 - (self.cardSettings.cardBackground.transparency / 100)))
                         .style('stroke', self.cardSettings.cardBackground.border.color)
                         .style('stroke-width', self.cardSettings.cardBackground.border.width)
                         .attr('rx', d3.min([15, self.cardSettings.cardBackground.border.radius]));
@@ -506,7 +505,7 @@ export class Visual implements IVisual {
             // Support highlight
             cards
                 .each(function(d) {
-                    d3.select(this).style('opacity', self.getElementOpacity(self.cardSettings.cardBackground.transparency, d.highlights));
+                    d3.select(this).style('opacity', self.changeOpacityOnHighlight(d.highlights));
                 });
 
             // Add listeners for tooltips and selection
@@ -652,8 +651,8 @@ export class Visual implements IVisual {
         return heights;
     }
 
-    private getElementOpacity(transparency: number, highlighted: boolean) {
-        return (1 - (transparency / 100)) * (highlighted ? 1 : 0.4);
+    private changeOpacityOnHighlight(highlighted: boolean) {
+        return (highlighted ? 1 : 0.4);
     }
 
 
@@ -664,7 +663,7 @@ export class Visual implements IVisual {
     ): void {
         if(!selection || !selectionIds) return;
         if(!selectionIds.length) {
-            const opacity: number = this.getElementOpacity(this.cardSettings.cardBackground.transparency, true);
+            const opacity: number = this.changeOpacityOnHighlight(true);
             selection.style('opacity', opacity);
 
             return;
@@ -673,7 +672,7 @@ export class Visual implements IVisual {
 
         selection.each(function(cardDataPoint: CardDataPoint) {
             const isSelected: boolean = self.isSelectionIdInArray(selectionIds, cardDataPoint.selectionId);
-            const opacity: number = self.getElementOpacity(self.cardSettings.cardBackground.transparency, isSelected)
+            const opacity: number = self.changeOpacityOnHighlight(isSelected)
 
             d3.select(this).style('opacity', opacity);
         })
@@ -711,6 +710,7 @@ export class Visual implements IVisual {
         if(!options.dataViews || !options.dataViews.length) {
             if(!this.isLandingPageOn) {
                 this.isLandingPageOn = true;
+                this.LandingPageRemoved = false;
                 const LandingPage: Element = this.createLandingPage();
                 this.element.appendChild(LandingPage);
                 this.LandingPage = d3Select(LandingPage);
@@ -728,33 +728,45 @@ export class Visual implements IVisual {
         let div = document.createElement('div');
         div.setAttribute('class', 'LandingPage');
 
-        let header = document.createElement('h1');
-        header.setAttribute('class', 'LandingPageText');
-        header.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
-        header.textContent = 'How to use this visual';
-        div.appendChild(header);
+        let GuidelinesHeader = document.createElement('h1');
+        GuidelinesHeader.setAttribute('class', 'LandingPageHeader');
+        GuidelinesHeader.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
+        GuidelinesHeader.textContent = 'Visual guidelines';
+        div.appendChild(GuidelinesHeader);
 
-        let generalRules = [
+        let guidelines = [
             'Using a field for titles is mandatory',
             'To show up data, you need either a value field or an image',
+            'You can add up to 8 measures in Values fields',
+            'Multiselect cards using ctrl key',
             'Avoid using boolean measure in values with highlight mode'
         ];
 
         let list = document.createElement('ul');
         div.appendChild(list);
 
-        generalRules.forEach(r => {
+        guidelines.forEach(r => {
             let item = document.createElement('li');
             item.setAttribute('class', 'LandingPageText');
             item.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
-            item.style.fontSize = "14pt"
             list.appendChild(item);
             item.textContent = r;
         });
-        
+
+        let SupportHeader = document.createElement('h1');
+        SupportHeader.setAttribute('class', 'LandingPageHeader');
+        SupportHeader.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
+        SupportHeader.textContent = 'Support and Feedback';
+        div.appendChild(SupportHeader);
+
+        let supportLink = document.createElement('span');
+        let supportText = document.createTextNode('Issues, ideas or want to provide feedback? Access https://fdanielsouza.github.io/');
+        supportLink.setAttribute('class', 'LandingPageText');
+        supportLink.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
+        supportLink.appendChild(supportText);
+        div.appendChild(supportLink);
 
         return div;
-
     }
 }
 
