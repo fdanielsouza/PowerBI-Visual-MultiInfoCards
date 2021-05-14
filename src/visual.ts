@@ -99,7 +99,13 @@ interface CardDataPoint {
     selectionId: ISelectionId
 }
 
-
+/**
+ * Interface that represents all settings from visual.ts
+ * 
+ * @interface
+ * @property { displayUnits:string } values                 - Format values according to Power BI measure settings
+ * @property { mode:string } cardImages                     - Shows the image as a top cover or an icon
+ */
 interface CardSettings {
     cardBackground: {
         width: number,
@@ -137,6 +143,11 @@ interface CardSettings {
     };
 }
 
+/**
+ * Interface that represents all cards dimensions
+ * 
+ * @interface
+ */
 interface CardsDimensions {
     general: {
         container: {
@@ -161,7 +172,7 @@ interface CardsDimensions {
             width: number,
             height: number
         };
-    }
+    };
 
     header: {
         titles: {
@@ -182,7 +193,7 @@ interface CardsDimensions {
             totalHeight: number,
             y: number
         };
-    }
+    };
 }
 
 
@@ -392,6 +403,7 @@ export class Visual implements IVisual {
 
         // Get all needed sizes for elements in cards
         const dimensions = this.getCardsDimensions(options.viewport.width, hasImages, this.cardSettings.cardImages.mode, titleFontHeight, fieldsFontHeight, valuesFontHeight);
+
 
         let container = this.svg
             .attr('height', this.calculateTotalSVGHeight(this.cardDataPoints.length, dimensions.general.cards.width, dimensions.general.cards.height, dimensions.general.container.width))
@@ -644,9 +656,6 @@ export class Visual implements IVisual {
         dimensions.header.images.width = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
         dimensions.header.images.height = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
         
-        // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
-        dimensions.header.titles.width = hasImages ? dimensions.content.inner.width - dimensions.header.images.width - 20 : dimensions.content.inner.width;
-        dimensions.header.titles.x = hasImages ? dimensions.general.cards.padding + 10 + dimensions.header.images.width : dimensions.general.cards.padding;
 
         // Gets the needed height to display each block of information
         const informationHeights = this.cardDataPoints.map(p => 
@@ -655,17 +664,23 @@ export class Visual implements IVisual {
         dimensions.body.informations.heights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 5);
         dimensions.body.informations.totalHeight = dimensions.body.informations.heights.reduce<number>((a: number, b:number) => a + b, 0)
 
+        // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
+        dimensions.header.titles.width = hasImages ? dimensions.content.inner.width - dimensions.header.images.width - 20 : dimensions.content.inner.width;
+        dimensions.header.titles.x = hasImages ? dimensions.general.cards.padding + 10 + dimensions.header.images.width : dimensions.general.cards.padding;
+
         // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
         dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
             + (fieldsHeight * this.cardDataPoints[0].fields.length)
             + (hasImages ? d3.max([titlesHeight, dimensions.header.images.height]) : titlesHeight * 2);
         
-        dimensions.content.background.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
-        dimensions.content.inner.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
         dimensions.header.titles.y = hasImages ? (dimensions.header.images.height + dimensions.general.cards.padding) / 2 + (titlesHeight / 2) : dimensions.general.cards.padding + titlesHeight; 
 
         // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
         dimensions.body.informations.y = dimensions.general.cards.padding + (hasImages ? d3.max([dimensions.header.images.height, titlesHeight]) : titlesHeight * 2);        
+        
+        // The values dependant on card height but not on image
+        dimensions.content.background.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
+        dimensions.content.inner.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
         
         return dimensions;
     }
