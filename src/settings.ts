@@ -34,6 +34,7 @@ export class VisualSettings extends DataViewObjectsParser {
       public cards: CardsSettings = new CardsSettings();
       public cardsTitles: CardsTitlesSettings = new CardsTitlesSettings();
       public cardsInformations: CardsInformationsSettings = new CardsInformationsSettings();
+      public cardsImages: CardsImagesSettings = new CardsImagesSettings();
       }
 
 export class CardsSettings {
@@ -74,6 +75,11 @@ export class CardsInformationsSettings {
       // Default information value font color
       public valuesFontColor: string = "black";
       // Default information numeric display units
-      public valuesDisplayUnits: string = "Auto";
+      public valuesDisplayUnits: string = "auto";
+}
+
+export class CardsImagesSettings {
+      // Default image mode
+      public imageMode: string = "profile"
 }
 

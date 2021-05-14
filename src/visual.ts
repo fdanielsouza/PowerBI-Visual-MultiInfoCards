@@ -131,6 +131,52 @@ interface CardSettings {
             displayUnits: string,
         };
     }; 
+
+    cardImages: {
+        mode: string
+    };
+}
+
+interface CardsDimensions {
+    general: {
+        width: number,
+        height: number,
+        padding: number,
+        margin: number
+    };
+
+    content: {
+        background: {
+            width: number,
+            height: number
+        };
+
+        inner:{
+            width: number,
+            height: number
+        };
+    }
+
+    header: {
+        titles: {
+            x: number,
+            y: number,
+            width: number
+        };
+
+        images: {
+            width: number,
+            height: number
+        };
+    };
+
+    body: {
+        informations: {
+            heights: number[],
+            totalHeight: number,
+            y: number
+        };
+    }
 }
 
 
@@ -177,6 +223,9 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
                 fill: getPaletteProperty('foreground', palette, visualSettings.cardsInformations.valuesFontColor),
                 displayUnits: visualSettings.cardsInformations.valuesDisplayUnits
             }
+        },
+        cardImages: {
+            mode: visualSettings.cardsImages.imageMode
         }   
     }
 
@@ -369,7 +418,8 @@ export class Visual implements IVisual {
         // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
         let infoYPadding = cardPadding + (hasImages ? d3.max([imageHeight, titleFontHeight]) : titleFontHeight * 2);        
         
-        
+        const dimensions = this.getCardsDimensions(options.viewport.width, hasImages, this.cardSettings.cardImages.mode, titleFontHeight, fieldsFontHeight, valuesFontHeight);
+        console.log(dimensions)
 
         let container = this.svg
             .attr('height', this.calculateTotalSVGHeight(this.cardDataPoints.length, cardWidth, cardHeight, containerWidth))
@@ -567,6 +617,82 @@ export class Visual implements IVisual {
 
 
     // My own methods to deal with sizing stuff
+    private getCardsDimensions(viewportWidth: number, hasImages: number, imageMode: string, titlesHeight: number, fieldsHeight: number, valuesHeight: number): CardsDimensions {
+        let dimensions: CardsDimensions = {
+            general: {
+                width: 0,
+                height: 0,
+                padding: 15,
+                margin: 5
+            },
+            content: {
+                background: {
+                    width: 0,
+                    height: 0
+                },        
+                inner:{
+                    width: 0,
+                    height: 0
+                },
+            },        
+            header: {
+                titles: {
+                    x: 0,
+                    y: 0,
+                    width: 0
+                },
+                images: {
+                    width: 0,
+                    height: 0
+                }
+            },        
+            body: {
+                informations: {
+                    heights: [],
+                    totalHeight: 0,
+                    y: 0
+                }
+            }
+        };
+
+        if(!viewportWidth
+        || !this.cardDataPoints
+        || !this.cardSettings
+        ) return dimensions;
+            
+
+        dimensions.general.width = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
+        dimensions.content.background.width = dimensions.general.width - (2 * dimensions.general.margin);
+        dimensions.content.inner.width = dimensions.general.width - (2 * dimensions.general.padding);
+        dimensions.header.images.width = 24 * (0.5 + Math.floor(dimensions.general.width / 100));
+        dimensions.header.images.height = 24 * (0.5 + Math.floor(dimensions.general.width / 100));
+        
+        // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
+        dimensions.header.titles.width = hasImages ? dimensions.content.inner.width - dimensions.header.images.width - 20 : dimensions.content.inner.width;
+        dimensions.header.titles.x = hasImages ? dimensions.general.padding + 10 + dimensions.header.images.width : dimensions.general.padding;
+
+        // Gets the needed height to display each block of information
+        const informationHeights = this.cardDataPoints.map(p => 
+            this.calculateInformationHeights(p, this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize, dimensions.content.inner.width, valuesHeight)
+        );
+        dimensions.body.informations.heights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 5);
+        dimensions.body.informations.totalHeight = dimensions.body.informations.heights.reduce<number>((a: number, b:number) => a + b, 0)
+
+        // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
+        dimensions.general.height = 30 + dimensions.body.informations.totalHeight
+            + (fieldsHeight * this.cardDataPoints[0].fields.length)
+            + (hasImages ? d3.max([titlesHeight, dimensions.header.images.height]) : titlesHeight * 2);
+        
+        dimensions.content.background.height = dimensions.general.height - (2 * dimensions.general.margin);
+        dimensions.content.inner.height = dimensions.general.height - (2 * dimensions.general.margin);
+        dimensions.header.titles.y = hasImages ? (dimensions.header.images.height + dimensions.general.padding) / 2 + (titlesHeight / 2) : dimensions.general.padding + titlesHeight; 
+
+        // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
+        dimensions.body.informations.y = dimensions.general.padding + (hasImages ? d3.max([dimensions.header.images.height, titlesHeight]) : titlesHeight * 2);        
+        
+        return dimensions;
+    }
+
     private positionCardInGrid(position: number, elementWidth: number, elementHeight: number, containerWidth: number): string {
         let maxPerRow: number = Math.floor(containerWidth / elementWidth);
         let x: number = (position - (maxPerRow * Math.floor(position / maxPerRow))) * elementWidth;

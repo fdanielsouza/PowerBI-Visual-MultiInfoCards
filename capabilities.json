@@ -114,7 +114,8 @@
                     }
                 }
             }
-        },"cardsInformations": {
+        },
+        "cardsInformations": {
             "displayName": "Informations",
             "properties": {
                 "fontSize": {
@@ -176,6 +177,26 @@
                         "formatting": {
                             "labelDisplayUnits": true
                         }
+                    }
+                }
+            }
+        },
+        "cardsImages": {
+            "displayName": "Images",
+            "properties": {
+                "imageMode": {
+                    "displayName": "Image mode",
+                    "type": {
+                        "enumeration": [
+                            {
+                                "value": "profile",
+                                "displayName": "Profile"
+                            },
+                            {
+                                "value": "cover",
+                                "displayName": "Cover"
+                            }
+                        ]
                     }
                 }
             }
