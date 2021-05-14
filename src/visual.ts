@@ -50,9 +50,12 @@ import ISandBoxExtendedColorPallete = powerbi.extensibility.ISandboxExtendedColo
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import DataView = powerbi.DataView;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
+import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 import * as d3 from "d3";
-import { dataViewObject } from "powerbi-visuals-utils-dataviewutils";
+import { dataViewObject, dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 import {createTooltipServiceWrapper, ITooltipServiceWrapper, TooltipServiceWrapper, touchStartEventName} from "powerbi-visuals-utils-tooltiputils";
+import { getFillColorByPropertyName } from "powerbi-visuals-utils-dataviewutils/lib/dataViewObject";
+import { settings } from "node:cluster";
 
 
 type Selection<T1, T2 = T1> = d3.Selection<any, T1, any, T2>;
@@ -75,6 +78,7 @@ interface CardViewModel {
  * Interface for data points
  * 
  * @interface
+ * @property { string } color                               - The background data point color
  * @property { PrimitiveValue } title                       - Title for the card data point
  * @property { string[] } fields                            - Names of fields inside the card
  * @property { PrimitiveValue[] } values                    - Values of fields in the card
@@ -84,6 +88,7 @@ interface CardViewModel {
  * @property { ISelectionId } selectionId                   - Id assigned for visual interaction
  */
 interface CardDataPoint {
+    color: string;
     title: PrimitiveValue;
     fields: string[];
     values: PrimitiveValue[];
@@ -135,7 +140,6 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
         settings: <CardSettings>{}
     }
     let dataView: DataView = options.dataViews[0];
-
     if(!dataView
         || !dataView
         || !dataView.categorical
@@ -143,7 +147,6 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     ) {
         return viewModel;
     }
-
 
     const palette: ISandBoxExtendedColorPallete = host.colorPalette;
     let cardSettings: CardSettings = {
@@ -179,19 +182,22 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
 
 
     let titles = dataView.categorical.categories[0];
+    let formatting = titles.objects || null;
     let informations = dataView.categorical.values.filter(value => value.source.roles.informations == true);
     let images = dataView.categorical.values.filter(value => value.source.roles.images == true)[0] || null;
     let tooltips = dataView.categorical.values.filter(value => value.source.roles.tooltips == true);
     let highlights = dataView.categorical.values[0].highlights || null;
     let cardDataPoints: CardDataPoint[] = [];
 
-
     for (let i = 0; i < titles.values.length; i++) {
+        const color: string = formatting ? formatting[i].cards.backgroundColor["solid"].color: cardSettings.cardBackground.fill;
+
         const selectionId: ISelectionId = host.createSelectionIdBuilder()
             .withCategory(dataView.categorical.categories[0], i)
             .createSelectionId();
 
         cardDataPoints.push({
+            color: color,
             title: formatDataViewValues(titles.values[i], getColumnDataType(titles.source.type), titles.source.format, cardSettings.cardInformations.values.displayUnits),
             fields: informations.map(info => info.source.displayName),
             values: informations.map(info => formatDataViewValues(info.values[i], getColumnDataType(info.source.type), info.source.format, cardSettings.cardInformations.values.displayUnits)),
@@ -389,7 +395,7 @@ export class Visual implements IVisual {
                 // Creates a background rect for each card
                 d3.select(this)
                     .selectAll('.background')
-                    .data([d])
+                    .data([d.color])
                     .enter()
                         .append<SVGElement>('rect')
                         .classed('background', true)
@@ -397,7 +403,7 @@ export class Visual implements IVisual {
                         .attr('y', cardMargin)
                         .attr('height', backgroundHeight)
                         .attr('width', backgroundWidth)
-                        .style('fill', self.cardSettings.cardBackground.fill)
+                        .style('fill', c => c)
                         .style('opacity', (1 - (self.cardSettings.cardBackground.transparency / 100)))
                         .style('stroke', self.cardSettings.cardBackground.border.color)
                         .style('stroke-width', self.cardSettings.cardBackground.border.width)
@@ -545,7 +551,18 @@ export class Visual implements IVisual {
 
     public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
         const settings: VisualSettings = this.visualSettings || <VisualSettings>VisualSettings.getDefault();
-        return VisualSettings.enumerateObjectInstances(settings, options);
+        let objectEnum = VisualSettings.enumerateObjectInstances(settings, options);
+
+        switch(objectEnum["instances"][0].objectName) {
+            case 'cards':
+                objectEnum["instances"][0].properties.backgroundColor = { solid: { color: objectEnum["instances"][0].properties.backgroundColor } }; 
+                objectEnum["instances"][0].propertyInstanceKind = { backgroundColor: VisualEnumerationInstanceKinds.ConstantOrRule };
+                objectEnum["instances"][0].selector = dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals);
+                objectEnum["instances"][0].altConstantValueSelector = this.cardDataPoints.map(p => p.selectionId.getSelector());
+                break;
+        }
+
+        return objectEnum;
     }
 
 
