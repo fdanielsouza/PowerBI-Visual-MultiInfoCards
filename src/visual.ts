@@ -139,10 +139,16 @@ interface CardSettings {
 
 interface CardsDimensions {
     general: {
-        width: number,
-        height: number,
-        padding: number,
-        margin: number
+        container: {
+            width: number
+        };
+
+        cards: {
+            width: number,
+            height: number,
+            padding: number,
+            margin: number
+        };
     };
 
     content: {
@@ -379,51 +385,17 @@ export class Visual implements IVisual {
         // Having images will impact positioning of several elements, so this will be used further in logical tests
         let hasImages = this.cardDataPoints.filter(p => p.image != null).length;
 
-        // Static size values
-        let cardMargin = 5;
-        let cardPadding = 15;
-
-        // Dynamic size values
-        let cardWidth = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
-        let containerWidth = d3.max([cardWidth, options.viewport.width])
-        let backgroundWidth = cardWidth - (2 * cardMargin);
-        let contentWidth = cardWidth - (2 * cardPadding);
-        let imageWidth = 24 * (0.5 + Math.floor(cardWidth / 100));
-        let imageHeight = 24 * (0.5 + Math.floor(cardWidth / 100));
-        // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
-        let titleWidth = hasImages ? contentWidth - imageWidth - 20 : contentWidth;
-        let titleXPadding = hasImages ? cardPadding + 10 + imageWidth : cardPadding;
-
- 
         // Calculate font heights for each kind of text, so we can set correct spacing between elements
         let titleFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardTitle.fontFamily, this.cardSettings.cardTitle.fontSize);
         let fieldsFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardInformations.fields.fontFamily, this.cardSettings.cardInformations.fields.fontSize);
         let valuesFontHeight = this.calculateCardTextHeight('Power BI Sample Text', this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize);
 
-        // Gets the needed height to display each block of information
-        let informationHeights = this.cardDataPoints.map(p => 
-            this.calculateInformationHeights(p, this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize, contentWidth, valuesFontHeight)
-        );
-        let longestHeights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 5);
-        let totalLongestHeight = longestHeights.reduce<number>((a: number, b:number) => a + b, 0)
-
-        // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
-        let cardHeight = 30 + totalLongestHeight 
-            + (fieldsFontHeight * this.cardDataPoints[0].fields.length)
-            + (hasImages ? d3.max([titleFontHeight, imageHeight]) : titleFontHeight * 2)
-        
-        let backgroundHeight = cardHeight - (2 * cardMargin);
-        let contentHeight = cardHeight - (2 * cardPadding);
-        let titleYPadding = hasImages ? (imageHeight + cardPadding) / 2 + (titleFontHeight / 2) : cardPadding + titleFontHeight;      
-        // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
-        let infoYPadding = cardPadding + (hasImages ? d3.max([imageHeight, titleFontHeight]) : titleFontHeight * 2);        
-        
+        // Get all needed sizes for elements in cards
         const dimensions = this.getCardsDimensions(options.viewport.width, hasImages, this.cardSettings.cardImages.mode, titleFontHeight, fieldsFontHeight, valuesFontHeight);
-        console.log(dimensions)
 
         let container = this.svg
-            .attr('height', this.calculateTotalSVGHeight(this.cardDataPoints.length, cardWidth, cardHeight, containerWidth))
-            .attr('width', containerWidth);
+            .attr('height', this.calculateTotalSVGHeight(this.cardDataPoints.length, dimensions.general.cards.width, dimensions.general.cards.height, dimensions.general.container.width))
+            .attr('width', dimensions.general.container.width);
         /*
                 Now we'll render each card on the screen and all of it's inner elements
         */
@@ -438,7 +410,7 @@ export class Visual implements IVisual {
 
         cards
             .classed('card', true)
-            .attr('transform', (_, i) => this.positionCardInGrid(i, cardWidth, cardHeight, containerWidth));
+            .attr('transform', (_, i) => this.positionCardInGrid(i, dimensions.general.cards.width, dimensions.general.cards.height, dimensions.general.container.width));
 
         cards
             .each(function(d) {
@@ -449,10 +421,10 @@ export class Visual implements IVisual {
                     .enter()
                         .append<SVGElement>('rect')
                         .classed('background', true)
-                        .attr('x', cardMargin)
-                        .attr('y', cardMargin)
-                        .attr('height', backgroundHeight)
-                        .attr('width', backgroundWidth)
+                        .attr('x', dimensions.general.cards.margin)
+                        .attr('y', dimensions.general.cards.margin)
+                        .attr('height', dimensions.content.background.height)
+                        .attr('width', dimensions.content.background.width)
                         .style('fill', c => c)
                         .style('opacity', (1 - (self.cardSettings.cardBackground.transparency / 100)))
                         .style('stroke', self.cardSettings.cardBackground.border.color)
@@ -466,9 +438,9 @@ export class Visual implements IVisual {
                     .enter()
                         .append<SVGElement>('text')
                         .classed('title', true)
-                        .attr('x', titleXPadding)
-                        .attr('y', titleYPadding)
-                        .attr('width', titleWidth)
+                        .attr('x', dimensions.header.titles.x)
+                        .attr('y', dimensions.header.titles.y)
+                        .attr('width', dimensions.header.titles.width)
                         .style('font-size', self.cardSettings.cardTitle.fontSize)
                         .style('font-family', self.cardSettings.cardTitle.fontFamily)
                         .style('fill', self.cardSettings.cardTitle.fill)
@@ -477,7 +449,7 @@ export class Visual implements IVisual {
                                 t, 
                                 self.cardSettings.cardTitle.fontFamily, 
                                 self.cardSettings.cardTitle.fontSize, 
-                                titleWidth
+                                dimensions.header.titles.width
                             )
                         });
 
@@ -489,10 +461,10 @@ export class Visual implements IVisual {
                         .enter()
                             .append<SVGElement>('svg:image')
                             .classed('image', true)
-                            .attr('x', cardPadding)
-                            .attr('y', cardPadding)
-                            .attr('height', imageHeight)
-                            .attr('width', imageWidth)
+                            .attr('x', dimensions.general.cards.padding)
+                            .attr('y', dimensions.general.cards.padding)
+                            .attr('height', dimensions.header.images.height)
+                            .attr('width', dimensions.header.images.width)
                             .attr('xlink:href', (i: string) => i);
                 }
 
@@ -503,10 +475,10 @@ export class Visual implements IVisual {
                     .enter()
                         .append<SVGElement>('text')
                         .classed('information-fields', true)
-                        .attr('x', cardPadding)
-                        .attr('y', (_, i) => infoYPadding + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
-                        .attr('height', contentHeight)
-                        .attr('width', contentWidth)
+                        .attr('x', dimensions.general.cards.padding)
+                        .attr('y', (_, i) => dimensions.body.informations.y + ((i + 1) * fieldsFontHeight) + dimensions.body.informations.heights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
+                        .attr('height', dimensions.content.inner.height)
+                        .attr('width', dimensions.content.inner.width)
                         .style('font-size', self.cardSettings.cardInformations.fields.fontSize)
                         .style('font-family', self.cardSettings.cardInformations.fields.fontFamily)
                         .style('fill', self.cardSettings.cardInformations.fields.fill)
@@ -515,7 +487,7 @@ export class Visual implements IVisual {
                                 field, 
                                 self.cardSettings.cardInformations.fields.fontFamily, 
                                 self.cardSettings.cardInformations.fields.fontSize, 
-                                contentWidth
+                                dimensions.content.inner.width
                             )
                         );
 
@@ -527,10 +499,10 @@ export class Visual implements IVisual {
                     .enter()
                         .append<SVGElement>('text')
                         .classed('information-values', true)
-                        .attr('x', cardPadding)
-                        .attr('y', (_, i) => infoYPadding + valuesFontHeight + ((i + 1) * fieldsFontHeight) + longestHeights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
-                        .attr('height', contentHeight)
-                        .attr('width', contentWidth)
+                        .attr('x', dimensions.general.cards.padding)
+                        .attr('y', (_, i) => dimensions.body.informations.y + valuesFontHeight + ((i + 1) * fieldsFontHeight) + dimensions.body.informations.heights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
+                        .attr('height', dimensions.content.inner.height)
+                        .attr('width', dimensions.content.inner.width)
                         .style('font-size', self.cardSettings.cardInformations.values.fontSize)
                         .style('font-family', self.cardSettings.cardInformations.values.fontFamily)
                         .style('fill', self.cardSettings.cardInformations.values.fill)
@@ -539,8 +511,8 @@ export class Visual implements IVisual {
                                 value, 
                                 self.cardSettings.cardInformations.values.fontFamily,
                                 self.cardSettings.cardInformations.values.fontSize,
-                                cardPadding, 
-                                contentWidth, 
+                                dimensions.general.cards.padding, 
+                                dimensions.content.inner.width, 
                                 valuesFontHeight
                             )
                         });
@@ -605,7 +577,6 @@ export class Visual implements IVisual {
 
         switch(objectEnum["instances"][0].objectName) {
             case 'cards':
-                objectEnum["instances"][0].properties.backgroundColor = { solid: { color: objectEnum["instances"][0].properties.backgroundColor } }; 
                 objectEnum["instances"][0].propertyInstanceKind = { backgroundColor: VisualEnumerationInstanceKinds.ConstantOrRule };
                 objectEnum["instances"][0].selector = dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals);
                 objectEnum["instances"][0].altConstantValueSelector = this.cardDataPoints.map(p => p.selectionId.getSelector());
@@ -620,10 +591,15 @@ export class Visual implements IVisual {
     private getCardsDimensions(viewportWidth: number, hasImages: number, imageMode: string, titlesHeight: number, fieldsHeight: number, valuesHeight: number): CardsDimensions {
         let dimensions: CardsDimensions = {
             general: {
-                width: 0,
-                height: 0,
-                padding: 15,
-                margin: 5
+                container: {
+                    width: viewportWidth
+                },
+                cards: {
+                    width: 0,
+                    height: 0,
+                    padding: 15,
+                    margin: 5
+                }
             },
             content: {
                 background: {
@@ -661,15 +637,16 @@ export class Visual implements IVisual {
         ) return dimensions;
             
 
-        dimensions.general.width = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
-        dimensions.content.background.width = dimensions.general.width - (2 * dimensions.general.margin);
-        dimensions.content.inner.width = dimensions.general.width - (2 * dimensions.general.padding);
-        dimensions.header.images.width = 24 * (0.5 + Math.floor(dimensions.general.width / 100));
-        dimensions.header.images.height = 24 * (0.5 + Math.floor(dimensions.general.width / 100));
+        dimensions.general.cards.width = d3.min([d3.max([150, this.cardSettings.cardBackground.width]), 1200]);
+        dimensions.general.container.width = d3.max([dimensions.general.cards.width, viewportWidth])
+        dimensions.content.background.width = dimensions.general.cards.width - (2 * dimensions.general.cards.margin);
+        dimensions.content.inner.width = dimensions.general.cards.width - (2 * dimensions.general.cards.padding);
+        dimensions.header.images.width = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
+        dimensions.header.images.height = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
         
         // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
         dimensions.header.titles.width = hasImages ? dimensions.content.inner.width - dimensions.header.images.width - 20 : dimensions.content.inner.width;
-        dimensions.header.titles.x = hasImages ? dimensions.general.padding + 10 + dimensions.header.images.width : dimensions.general.padding;
+        dimensions.header.titles.x = hasImages ? dimensions.general.cards.padding + 10 + dimensions.header.images.width : dimensions.general.cards.padding;
 
         // Gets the needed height to display each block of information
         const informationHeights = this.cardDataPoints.map(p => 
@@ -679,16 +656,16 @@ export class Visual implements IVisual {
         dimensions.body.informations.totalHeight = dimensions.body.informations.heights.reduce<number>((a: number, b:number) => a + b, 0)
 
         // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
-        dimensions.general.height = 30 + dimensions.body.informations.totalHeight
+        dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
             + (fieldsHeight * this.cardDataPoints[0].fields.length)
             + (hasImages ? d3.max([titlesHeight, dimensions.header.images.height]) : titlesHeight * 2);
         
-        dimensions.content.background.height = dimensions.general.height - (2 * dimensions.general.margin);
-        dimensions.content.inner.height = dimensions.general.height - (2 * dimensions.general.margin);
-        dimensions.header.titles.y = hasImages ? (dimensions.header.images.height + dimensions.general.padding) / 2 + (titlesHeight / 2) : dimensions.general.padding + titlesHeight; 
+        dimensions.content.background.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
+        dimensions.content.inner.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
+        dimensions.header.titles.y = hasImages ? (dimensions.header.images.height + dimensions.general.cards.padding) / 2 + (titlesHeight / 2) : dimensions.general.cards.padding + titlesHeight; 
 
         // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
-        dimensions.body.informations.y = dimensions.general.padding + (hasImages ? d3.max([dimensions.header.images.height, titlesHeight]) : titlesHeight * 2);        
+        dimensions.body.informations.y = dimensions.general.cards.padding + (hasImages ? d3.max([dimensions.header.images.height, titlesHeight]) : titlesHeight * 2);        
         
         return dimensions;
     }
