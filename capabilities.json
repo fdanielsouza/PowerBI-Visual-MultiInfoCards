@@ -198,6 +198,13 @@
                             }
                         ]
                     }
+                },
+                "coverImageHeight": {
+                    "displayName": "Cover height",
+                    "description": "The maximum height for images in cover mode (between 120 and 240)",
+                    "type": {
+                        "numeric": true
+                    }
                 }
             }
         }

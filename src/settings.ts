@@ -80,6 +80,8 @@ export class CardsInformationsSettings {
 
 export class CardsImagesSettings {
       // Default image mode
-      public imageMode: string = "profile"
+      public imageMode: string = "profile";
+      // Default cover height
+      public coverImageHeight: number = 150;
 }
 

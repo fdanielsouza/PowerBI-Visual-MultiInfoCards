@@ -139,7 +139,8 @@ interface CardSettings {
     }; 
 
     cardImages: {
-        mode: string
+        mode: string,
+        coverHeight: number
     };
 }
 
@@ -182,6 +183,8 @@ interface CardsDimensions {
         };
 
         images: {
+            x: number,
+            y: number,
             width: number,
             height: number
         };
@@ -242,7 +245,8 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             }
         },
         cardImages: {
-            mode: visualSettings.cardsImages.imageMode
+            mode: visualSettings.cardsImages.imageMode,
+            coverHeight: visualSettings.cardsImages.coverImageHeight
         }   
     }
 
@@ -473,8 +477,8 @@ export class Visual implements IVisual {
                         .enter()
                             .append<SVGElement>('svg:image')
                             .classed('image', true)
-                            .attr('x', dimensions.general.cards.padding)
-                            .attr('y', dimensions.general.cards.padding)
+                            .attr('x', dimensions.header.images.x)
+                            .attr('y', dimensions.header.images.y)
                             .attr('height', dimensions.header.images.height)
                             .attr('width', dimensions.header.images.width)
                             .attr('xlink:href', (i: string) => i);
@@ -607,38 +611,28 @@ export class Visual implements IVisual {
                     width: viewportWidth
                 },
                 cards: {
-                    width: 0,
-                    height: 0,
-                    padding: 15,
-                    margin: 5
+                    width: 0, height: 0, padding: 15, margin: 5
                 }
             },
             content: {
                 background: {
-                    width: 0,
-                    height: 0
+                    width: 0, height: 0
                 },        
                 inner:{
-                    width: 0,
-                    height: 0
+                    width: 0, height: 0
                 },
             },        
             header: {
                 titles: {
-                    x: 0,
-                    y: 0,
-                    width: 0
+                    x: 0, y: 0, width: 0
                 },
                 images: {
-                    width: 0,
-                    height: 0
+                    x: 0, y: 0, width: 0, height: 0
                 }
             },        
             body: {
                 informations: {
-                    heights: [],
-                    totalHeight: 0,
-                    y: 0
+                    heights: [], totalHeight: 0, y: 0
                 }
             }
         };
@@ -653,8 +647,6 @@ export class Visual implements IVisual {
         dimensions.general.container.width = d3.max([dimensions.general.cards.width, viewportWidth])
         dimensions.content.background.width = dimensions.general.cards.width - (2 * dimensions.general.cards.margin);
         dimensions.content.inner.width = dimensions.general.cards.width - (2 * dimensions.general.cards.padding);
-        dimensions.header.images.width = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
-        dimensions.header.images.height = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
         
 
         // Gets the needed height to display each block of information
@@ -664,21 +656,55 @@ export class Visual implements IVisual {
         dimensions.body.informations.heights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 5);
         dimensions.body.informations.totalHeight = dimensions.body.informations.heights.reduce<number>((a: number, b:number) => a + b, 0)
 
-        // Title will be at the top of each card, if there's an image, it will be at it's side, vertically in the middle
-        dimensions.header.titles.width = hasImages ? dimensions.content.inner.width - dimensions.header.images.width - 20 : dimensions.content.inner.width;
-        dimensions.header.titles.x = hasImages ? dimensions.general.cards.padding + 10 + dimensions.header.images.width : dimensions.general.cards.padding;
+        if(hasImages) {
+            if(imageMode == 'profile') {
 
-        // Determining the height for individual cards, based on the accumulated spacing nedded for informations plus title and image heights
-        dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
-            + (fieldsHeight * this.cardDataPoints[0].fields.length)
-            + (hasImages ? d3.max([titlesHeight, dimensions.header.images.height]) : titlesHeight * 2);
-        
-        dimensions.header.titles.y = hasImages ? (dimensions.header.images.height + dimensions.general.cards.padding) / 2 + (titlesHeight / 2) : dimensions.general.cards.padding + titlesHeight; 
+                dimensions.header.images.x = dimensions.general.cards.padding;
+                dimensions.header.images.y = dimensions.general.cards.padding;
+                dimensions.header.images.width = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
+                dimensions.header.images.height = 24 * (0.5 + Math.floor(dimensions.general.cards.width / 100));
+                
 
-        // The start position of information part depends on whether there's an image and if title height it's bigger than it or not
-        dimensions.body.informations.y = dimensions.general.cards.padding + (hasImages ? d3.max([dimensions.header.images.height, titlesHeight]) : titlesHeight * 2);        
+                dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
+                                                + (fieldsHeight * this.cardDataPoints[0].fields.length)
+                                                + d3.max([titlesHeight, dimensions.header.images.height]);
+
+                dimensions.header.titles.width = dimensions.content.inner.width - dimensions.header.images.width - 20;
+                dimensions.header.titles.x = dimensions.general.cards.padding + 10 + dimensions.header.images.width;
+                dimensions.header.titles.y = (dimensions.header.images.height + dimensions.general.cards.padding) / 2 + (titlesHeight / 2)
+                dimensions.body.informations.y = dimensions.general.cards.padding + d3.max([dimensions.header.images.height, titlesHeight]);
+            
+            } else {
+                
+                dimensions.header.images.x = dimensions.general.cards.margin;
+                dimensions.header.images.y = dimensions.general.cards.margin;
+                dimensions.header.images.width = dimensions.content.background.width;
+                dimensions.header.images.height = d3.min([120, d3.max([this.cardSettings.cardImages.coverHeight, 240])]);
+
+                dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
+                                                + (fieldsHeight * this.cardDataPoints[0].fields.length)
+                                                + dimensions.header.images.height
+                                                + titlesHeight * 2;
+
+                dimensions.header.titles.width = dimensions.content.inner.width;
+                dimensions.header.titles.x = dimensions.general.cards.padding;
+                dimensions.header.titles.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight;
+                dimensions.body.informations.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight * 2;
+            
+            }
+        } else {
+
+            dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
+                                            + (fieldsHeight * this.cardDataPoints[0].fields.length)
+                                            + titlesHeight * 2;
+
+            dimensions.header.titles.width = dimensions.content.inner.width;
+            dimensions.header.titles.x = dimensions.general.cards.padding;
+            dimensions.header.titles.y = dimensions.general.cards.padding + titlesHeight;
+            dimensions.body.informations.y = dimensions.general.cards.padding + titlesHeight * 2;
         
-        // The values dependant on card height but not on image
+        }
+       
         dimensions.content.background.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
         dimensions.content.inner.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
         
