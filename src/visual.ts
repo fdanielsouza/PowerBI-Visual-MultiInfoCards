@@ -667,7 +667,8 @@ export class Visual implements IVisual {
 
                 dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
                                                 + (fieldsHeight * this.cardDataPoints[0].fields.length)
-                                                + d3.max([titlesHeight, dimensions.header.images.height]);
+                                                + d3.max([titlesHeight, dimensions.header.images.height])
+                                                + valuesHeight;
 
                 dimensions.header.titles.width = dimensions.content.inner.width - dimensions.header.images.width - 20;
                 dimensions.header.titles.x = dimensions.general.cards.padding + 10 + dimensions.header.images.width;
@@ -679,29 +680,29 @@ export class Visual implements IVisual {
                 dimensions.header.images.x = dimensions.general.cards.margin;
                 dimensions.header.images.y = dimensions.general.cards.margin;
                 dimensions.header.images.width = dimensions.content.background.width;
-                dimensions.header.images.height = d3.min([120, d3.max([this.cardSettings.cardImages.coverHeight, 240])]);
+                dimensions.header.images.height = d3.max([40, d3.min([this.cardSettings.cardImages.coverHeight, 480])]);
 
                 dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
                                                 + (fieldsHeight * this.cardDataPoints[0].fields.length)
                                                 + dimensions.header.images.height
-                                                + titlesHeight * 2;
+                                                + titlesHeight + valuesHeight;
 
                 dimensions.header.titles.width = dimensions.content.inner.width;
                 dimensions.header.titles.x = dimensions.general.cards.padding;
                 dimensions.header.titles.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight;
-                dimensions.body.informations.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight * 2;
+                dimensions.body.informations.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight + 10;
             
             }
         } else {
 
             dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
                                             + (fieldsHeight * this.cardDataPoints[0].fields.length)
-                                            + titlesHeight * 2;
+                                            + titlesHeight + valuesHeight;
 
             dimensions.header.titles.width = dimensions.content.inner.width;
             dimensions.header.titles.x = dimensions.general.cards.padding;
             dimensions.header.titles.y = dimensions.general.cards.padding + titlesHeight;
-            dimensions.body.informations.y = dimensions.general.cards.padding + titlesHeight * 2;
+            dimensions.body.informations.y = dimensions.general.cards.padding + titlesHeight + 10;
         
         }
        
@@ -900,7 +901,9 @@ export class Visual implements IVisual {
             'To show up data, you need either a value field or an image',
             'You can add up to 8 measures in Values fields',
             'Multiselect cards using ctrl key',
-            'Avoid using boolean measure in values with highlight mode'
+            'Avoid using boolean measure in values with highlight mode',
+            'If you want to use cover mode, try to get images with the same dimensions',
+            'On cover mode, adjust Image height X Card width to the ratio of your images'
         ];
 
         let list = document.createElement('ul');

@@ -201,7 +201,7 @@
                 },
                 "coverImageHeight": {
                     "displayName": "Cover height",
-                    "description": "The maximum height for images in cover mode (between 120 and 240)",
+                    "description": "The maximum height for images in cover mode (between 40 and 480)",
                     "type": {
                         "numeric": true
                     }
