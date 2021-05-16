@@ -381,6 +381,7 @@ export class Visual implements IVisual {
 
     public update(options: VisualUpdateOptions) { 
         this.events.renderingStarted(options);
+
         this.HandleLandingPage(options);
         let self: this = this;
 
@@ -481,6 +482,7 @@ export class Visual implements IVisual {
                             .attr('y', dimensions.header.images.y)
                             .attr('height', dimensions.header.images.height)
                             .attr('width', dimensions.header.images.width)
+                            .attr('preserveAspectRatio', self.cardSettings.cardImages.mode == 'profile' ? 'xMidYMid meet' : 'xMidYMid slice')
                             .attr('xlink:href', (i: string) => i);
                 }
 
@@ -902,8 +904,7 @@ export class Visual implements IVisual {
             'You can add up to 8 measures in Values fields',
             'Multiselect cards using ctrl key',
             'Avoid using boolean measure in values with highlight mode',
-            'If you want to use cover mode, try to get images with the same dimensions',
-            'On cover mode, adjust Image height X Card width to the ratio of your images'
+            'If you want to use cover mode, try to get images with close dimensions for the best results'
         ];
 
         let list = document.createElement('ul');
