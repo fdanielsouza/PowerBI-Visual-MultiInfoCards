@@ -223,7 +223,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
             border: {
                 width: getPaletteProperty('strokeWidth', palette, visualSettings.cards.strokeWidth) + "px",
                 color: getPaletteProperty('foreground', palette, visualSettings.cards.borderColor),
-                radius: visualSettings.cards.borderRadius
+                radius: d3.max([0, d3.min([15, visualSettings.cards.borderRadius])])
             }
         },   
         cardTitle: {
@@ -446,7 +446,7 @@ export class Visual implements IVisual {
                         .style('opacity', (1 - (self.cardSettings.cardBackground.transparency / 100)))
                         .style('stroke', self.cardSettings.cardBackground.border.color)
                         .style('stroke-width', self.cardSettings.cardBackground.border.width)
-                        .attr('rx', d3.min([15, self.cardSettings.cardBackground.border.radius]));
+                        .attr('rx', self.cardSettings.cardBackground.border.radius);
 
                 // At the top position of the card, each title
                 d3.select(this)
@@ -686,13 +686,14 @@ export class Visual implements IVisual {
 
                 dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
                                                 + (fieldsHeight * this.cardDataPoints[0].fields.length)
+                                                + dimensions.header.images.y
                                                 + dimensions.header.images.height
                                                 + titlesHeight + valuesHeight;
 
                 dimensions.header.titles.width = dimensions.content.inner.width;
                 dimensions.header.titles.x = dimensions.general.cards.padding;
                 dimensions.header.titles.y = dimensions.general.cards.padding + dimensions.header.images.y + dimensions.header.images.height + titlesHeight;
-                dimensions.body.informations.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight + 10;
+                dimensions.body.informations.y = dimensions.general.cards.padding + dimensions.header.images.y + dimensions.header.images.height + titlesHeight + 10;
                 
             }
         } else {
