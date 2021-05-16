@@ -104,7 +104,7 @@ interface CardDataPoint {
  * 
  * @interface
  * @property { displayUnits:string } values                 - Format values according to Power BI measure settings
- * @property { mode:string } cardImages                     - Shows the image as a top cover or an icon
+ * @property { mode:string } cardImages                     - Displays the image as a top cover or an icon
  */
 interface CardSettings {
     cardBackground: {
@@ -434,7 +434,7 @@ export class Visual implements IVisual {
                 // Creates a background rect for each card
                 d3.select(this)
                     .selectAll('.background')
-                    .data([d.color])
+                    .data([{color: d.color, selectionId: d.selectionId}])
                     .enter()
                         .append<SVGElement>('rect')
                         .classed('background', true)
@@ -442,7 +442,7 @@ export class Visual implements IVisual {
                         .attr('y', dimensions.general.cards.margin)
                         .attr('height', dimensions.content.background.height)
                         .attr('width', dimensions.content.background.width)
-                        .style('fill', c => c)
+                        .style('fill', d => d.color)
                         .style('opacity', (1 - (self.cardSettings.cardBackground.transparency / 100)))
                         .style('stroke', self.cardSettings.cardBackground.border.color)
                         .style('stroke-width', self.cardSettings.cardBackground.border.width)
@@ -451,7 +451,7 @@ export class Visual implements IVisual {
                 // At the top position of the card, each title
                 d3.select(this)
                     .selectAll('.title')
-                    .data([d.title])
+                    .data([{title: d.title, selectionId: d.selectionId}])
                     .enter()
                         .append<SVGElement>('text')
                         .classed('title', true)
@@ -461,9 +461,9 @@ export class Visual implements IVisual {
                         .style('font-size', self.cardSettings.cardTitle.fontSize)
                         .style('font-family', self.cardSettings.cardTitle.fontFamily)
                         .style('fill', self.cardSettings.cardTitle.fill)
-                        .text((t: string) => {
+                        .text(d => {
                             return self.fitTextInMaxWidth(
-                                t, 
+                                d.title, 
                                 self.cardSettings.cardTitle.fontFamily, 
                                 self.cardSettings.cardTitle.fontSize, 
                                 dimensions.header.titles.width
@@ -474,7 +474,7 @@ export class Visual implements IVisual {
                 if(hasImages) {
                     d3.select(this)
                         .selectAll('.image')
-                        .data([d.image])
+                        .data([{ image: d.image, selectionId: d.selectionId }])
                         .enter()
                             .append<SVGElement>('svg:image')
                             .classed('image', true)
@@ -483,7 +483,7 @@ export class Visual implements IVisual {
                             .attr('height', dimensions.header.images.height)
                             .attr('width', dimensions.header.images.width)
                             .attr('preserveAspectRatio', self.cardSettings.cardImages.mode == 'profile' ? 'xMidYMid meet' : 'xMidYMid slice')
-                            .attr('xlink:href', (i: string) => i);
+                            .attr('xlink:href', d => d.image);
                 }
 
                 // First we position each field name
@@ -680,9 +680,9 @@ export class Visual implements IVisual {
             } else {
                 
                 dimensions.header.images.x = dimensions.general.cards.margin;
-                dimensions.header.images.y = dimensions.general.cards.margin;
+                dimensions.header.images.y = dimensions.general.cards.margin + this.cardSettings.cardBackground.border.radius;
                 dimensions.header.images.width = dimensions.content.background.width;
-                dimensions.header.images.height = d3.max([40, d3.min([this.cardSettings.cardImages.coverHeight, 480])]);
+                dimensions.header.images.height = d3.max([40, d3.min([this.cardSettings.cardImages.coverHeight, 480])]) - this.cardSettings.cardBackground.border.radius;
 
                 dimensions.general.cards.height = 30 + dimensions.body.informations.totalHeight
                                                 + (fieldsHeight * this.cardDataPoints[0].fields.length)
@@ -691,9 +691,9 @@ export class Visual implements IVisual {
 
                 dimensions.header.titles.width = dimensions.content.inner.width;
                 dimensions.header.titles.x = dimensions.general.cards.padding;
-                dimensions.header.titles.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight;
+                dimensions.header.titles.y = dimensions.general.cards.padding + dimensions.header.images.y + dimensions.header.images.height + titlesHeight;
                 dimensions.body.informations.y = dimensions.general.cards.padding + dimensions.header.images.height + titlesHeight + 10;
-            
+                
             }
         } else {
 
