@@ -30,7 +30,6 @@ import { event as d3Event, select as d3Select } from "d3-selection";
 const getEvent = () => require("d3-selection").events;
 import { textMeasurementService, valueFormatter, stringExtensions, interfaces } from "powerbi-visuals-utils-formattingutils";
 import TextProperties = interfaces.TextProperties;
-import { CardsInformationsSettings, CardsSettings, VisualSettings } from "./settings";
 import "core-js/stable";
 import "./../style/visual.less";
 import powerbi from "powerbi-visuals-api";
@@ -41,6 +40,7 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 import IVisualHost = powerbi.extensibility.visual.IVisualHost;
 import IVisualEventService = powerbi.extensibility.IVisualEventService;
 import PrimitiveValue = powerbi.PrimitiveValue;
+import Fill = powerbi.Fill;
 import ISelectionId = powerbi.visuals.ISelectionId;
 import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import VisualObjectInstanceEnumeration = powerbi.VisualObjectInstanceEnumeration;
@@ -52,6 +52,7 @@ import DataView = powerbi.DataView;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 import * as d3 from "d3";
+import { getValue, getCategoricalObjectValue } from "./objectEnumerationUtility";
 import { dataViewObject, dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 import {createTooltipServiceWrapper, ITooltipServiceWrapper, TooltipServiceWrapper, touchStartEventName} from "powerbi-visuals-utils-tooltiputils";
 import { getFillColorByPropertyName } from "powerbi-visuals-utils-dataviewutils/lib/dataViewObject";
@@ -110,6 +111,7 @@ interface CardSettings {
     cardBackground: {
         width: number,
         fill: string,
+        conditionalFormat: boolean,
         transparency: number,
         border: {
             width: string,
@@ -200,11 +202,12 @@ interface CardsDimensions {
 }
 
 
-function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visualSettings: VisualSettings): CardViewModel {
+function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardViewModel {
     let viewModel: CardViewModel = {
         dataPoints: [],
         settings: <CardSettings>{}
     }
+
     let dataView: DataView = options.dataViews[0];
     if(!dataView
         || !dataView
@@ -215,38 +218,41 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     }
 
     const palette: ISandBoxExtendedColorPallete = host.colorPalette;
+    let objects = dataView.metadata.objects;
+
     let cardSettings: CardSettings = {
         cardBackground: {
-            width: visualSettings.cards.cardWidth,
-            fill: getPaletteProperty('background', palette, visualSettings.cards.backgroundColor),
-            transparency: visualSettings.cards.backgroundTransparency,
+            width: getValue<number>(objects, 'cards', 'cardWidth', 280),
+            fill: getPaletteProperty('background', palette, getValue<string>(objects, 'cards', 'backgroundColor', '#FFFFFF')),
+            conditionalFormat: getValue<boolean>(objects, 'cards', 'conditionalFormat', false),
+            transparency: getValue<number>(objects, 'cards', 'backgroundTransparency', 0),
             border: {
-                width: getPaletteProperty('strokeWidth', palette, visualSettings.cards.strokeWidth) + "px",
-                color: getPaletteProperty('foreground', palette, visualSettings.cards.borderColor),
-                radius: d3.max([0, d3.min([15, visualSettings.cards.borderRadius])])
+                width: getPaletteProperty('strokeWidth', palette, getValue<number>(objects, 'cards', 'strokeWidth', 0)) + "px",
+                color: getPaletteProperty('foreground', palette, getValue<string>(objects, 'cards', 'borderColor', 'black')),
+                radius: d3.max([0, d3.min([15, getValue<number>(objects, 'cards', 'borderRadius', 0)])])
             }
-        },   
+        }, 
         cardTitle: {
-            fontSize: visualSettings.cardsTitles.titleFontSize + "pt",
-            fontFamily: visualSettings.cardsTitles.fontFamily,
-            fill: getPaletteProperty('foreground', palette, visualSettings.cardsTitles.fontColor)
+            fontSize: getValue<number>(objects, 'cardsTitles', 'titleFontSize', 12) + "pt",
+            fontFamily: getValue<string>(objects, 'cardsTitles', 'fontFamily', 'wf_standard-font, helvetica, arial, sans-serif'),
+            fill: getPaletteProperty('foreground', palette, getValue<string>(objects, 'cardsTitles', 'fontColor', 'black'))
         },
         cardInformations: {
             fields: {
-                fontSize: visualSettings.cardsInformations.fontSize + "pt",
-                fontFamily: visualSettings.cardsInformations.fieldsFontFamily,
-                fill: getPaletteProperty('foreground', palette, visualSettings.cardsInformations.fieldsFontColor)
+                fontSize: getValue<number>(objects, 'cardsInformations', 'fontSize', 10) + "pt",
+                fontFamily: getValue<string>(objects, 'cardsInformations', 'fieldsFontFamily', '\'Segoe UI\', wf_segoe-ui_normal, helvetica, arial, sans-serif'),
+                fill: getPaletteProperty('foreground', palette, getValue<string>(objects, 'cardsInformations', 'fieldsFontColor', '#666666'))
             },
             values: {
-                fontSize: visualSettings.cardsInformations.secFontSize + "pt",
-                fontFamily: visualSettings.cardsInformations.valuesFontFamily,
-                fill: getPaletteProperty('foreground', palette, visualSettings.cardsInformations.valuesFontColor),
-                displayUnits: visualSettings.cardsInformations.valuesDisplayUnits
+                fontSize: getValue<number>(objects, 'cardsInformations', 'secFontSize', 10) + "pt",
+                fontFamily: getValue<string>(objects, 'cardsInformations', 'valuesFontFamily', '\'Segoe UI\', wf_segoe-ui_normal, helvetica, arial, sans-serif'),
+                fill: getPaletteProperty('foreground', palette, getValue<string>(objects, 'cardsInformations', 'valuesFontColor', 'black')),
+                displayUnits: getValue<string>(objects, 'cardsInformations', 'valuesDisplayUnits', 'Auto')
             }
         },
         cardImages: {
-            mode: visualSettings.cardsImages.imageMode,
-            coverHeight: visualSettings.cardsImages.coverImageHeight
+            mode: getValue<string>(objects, 'cardsImages', 'imageMode', 'profile'),
+            coverHeight: getValue<number>(objects, 'cardsImages', 'coverImageHeight', 150)
         }   
     }
 
@@ -258,9 +264,11 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
     let tooltips = dataView.categorical.values.filter(value => value.source.roles.tooltips == true);
     let highlights = dataView.categorical.values[0].highlights || null;
     let cardDataPoints: CardDataPoint[] = [];
-
+    
     for (let i = 0; i < titles.values.length; i++) {
-        const color: string = formatting ? formatting[i].cards.backgroundColor["solid"].color: cardSettings.cardBackground.fill;
+        const color: string = formatting && cardSettings.cardBackground.conditionalFormat ? 
+            getColorString(<Fill>formatting[i].conditionalFormatting.backgroundColor) : 
+            getColorString(cardSettings.cardBackground.fill);
 
         const selectionId: ISelectionId = host.createSelectionIdBuilder()
             .withCategory(dataView.categorical.categories[0], i)
@@ -283,6 +291,13 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost, visual
         dataPoints: cardDataPoints,
         settings: cardSettings
     }
+}
+
+
+function getColorString(color: Fill | string): string {
+    if(typeof(color) === 'string') return color;
+
+    return color.solid.color;
 }
 
 
@@ -341,7 +356,6 @@ function formatDataViewValues(value: any, type: string, format?: string, display
 
 
 export class Visual implements IVisual {
-    private visualSettings: VisualSettings;
     private host: IVisualHost;
     private events: IVisualEventService;
     private selectionManager: ISelectionManager;
@@ -391,10 +405,8 @@ export class Visual implements IVisual {
         d3.selectAll('.title').remove();
         d3.selectAll('.information-fields').remove();
         d3.selectAll('.information-values').remove();
-
-        this.visualSettings = VisualSettings.parse<VisualSettings>(options.dataViews[0]);
         
-        let viewModel: CardViewModel = visualTransform(options, this.host, this.visualSettings);
+        let viewModel: CardViewModel = visualTransform(options, this.host);
         this.cardSettings = viewModel.settings;
         this.cardDataPoints = viewModel.dataPoints;
 
@@ -589,15 +601,80 @@ export class Visual implements IVisual {
             this.events.renderingFinished(options);
     } 
 
-    public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
-        const settings: VisualSettings = this.visualSettings || <VisualSettings>VisualSettings.getDefault();
-        let objectEnum = VisualSettings.enumerateObjectInstances(settings, options);
 
-        switch(objectEnum["instances"][0].objectName) {
+
+    public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
+        let objectName = options.objectName;
+        let objectEnum: VisualObjectInstance[] = [];
+
+        if(!this.cardSettings) return objectEnum;
+
+        switch(objectName) {
             case 'cards':
-                objectEnum["instances"][0].propertyInstanceKind = { backgroundColor: VisualEnumerationInstanceKinds.ConstantOrRule };
-                objectEnum["instances"][0].selector = dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals);
-                objectEnum["instances"][0].altConstantValueSelector = this.cardDataPoints.map(p => p.selectionId.getSelector());
+                objectEnum.push({
+                    objectName: objectName,
+                    properties: {
+                        cardWidth: this.cardSettings.cardBackground.width,
+                        backgroundColor: this.cardSettings.cardBackground.fill,
+                        conditionalFormat: this.cardSettings.cardBackground.conditionalFormat,
+                        backgroundTransparency: this.cardSettings.cardBackground.transparency,
+                        strokeWidth: this.cardSettings.cardBackground.border.width.slice(0, -2),
+                        borderColor: this.cardSettings.cardBackground.border.color,
+                        borderRadius: this.cardSettings.cardBackground.border.radius
+                    },
+                    selector: null
+                });
+                break;
+            case 'conditionalFormatting':
+                if(this.cardSettings.cardBackground.conditionalFormat) {
+                    objectEnum.push({
+                        objectName: objectName,
+                        properties: {
+                            backgroundColor: 'white'
+                        },
+                        propertyInstanceKind: {
+                            backgroundColor: VisualEnumerationInstanceKinds.Rule
+                        },
+                        altConstantValueSelector: this.cardDataPoints.map(p => p.selectionId.getSelector()),
+                        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals)
+                    });
+                }
+                break;
+            case 'cardsTitles':
+                objectEnum.push({
+                    objectName: objectName,
+                    properties: {
+                        titleFontSize: this.cardSettings.cardTitle.fontSize.slice(0, -2),
+                        fontFamily: this.cardSettings.cardTitle.fontFamily,
+                        fontColor: this.cardSettings.cardTitle.fill
+                    },
+                    selector: null
+                });
+                break;
+            case 'cardsInformations':
+                objectEnum.push({
+                    objectName: objectName,
+                    properties: {
+                        fontSize: this.cardSettings.cardInformations.fields.fontSize.slice(0, -2),
+                        fieldsFontFamily: this.cardSettings.cardInformations.fields.fontFamily,
+                        fieldsFontColor: this.cardSettings.cardInformations.fields.fill,
+                        secFontSize: this.cardSettings.cardInformations.values.fontSize.slice(0, -2),
+                        valuesFontFamily: this.cardSettings.cardInformations.values.fontFamily,
+                        valuesFontColor: this.cardSettings.cardInformations.values.fill,
+                        valuesDisplayUnits: this.cardSettings.cardInformations.values.displayUnits
+                    },
+                    selector: null
+                });
+                break;
+            case 'cardsImages':
+                objectEnum.push({
+                    objectName: objectName,
+                    properties: {
+                        imageMode: this.cardSettings.cardImages.mode,
+                        coverImageHeight: this.cardSettings.cardImages.coverHeight
+                    },
+                    selector: null
+                });
                 break;
         }
 
@@ -905,6 +982,7 @@ export class Visual implements IVisual {
             'You can add up to 8 measures in Values fields',
             'Multiselect cards using ctrl key',
             'Avoid using boolean measure in values with highlight mode',
+            'Activate/deactivate conditional formatting under Cards pane, but set the rules in Conditional Formatting pane',
             'If you want to use cover mode, try to get images with close dimensions for the best results'
         ];
 

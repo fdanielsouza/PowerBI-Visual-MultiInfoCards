@@ -53,6 +53,12 @@
                         }
                     }
                 },
+                "conditionalFormat": {
+                    "displayName": "Conditional format",
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "backgroundTransparency": {
                     "displayName": "Transparency",
                     "type": {
@@ -80,6 +86,21 @@
                     "description": "Border radius between 0 and 15 (in px)",
                     "type": {
                         "numeric": true
+                    }
+                }
+            }
+        },
+        "conditionalFormatting": {
+            "displayName": "Conditional formatting",
+            "properties": {
+                "backgroundColor": {
+                "displayName": "Advanced Control",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
                     }
                 }
             }
