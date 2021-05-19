@@ -618,7 +618,7 @@ export class Visual implements IVisual {
                         backgroundColor: this.cardSettings.cardBackground.fill,
                         conditionalFormat: this.cardSettings.cardBackground.conditionalFormat,
                         backgroundTransparency: this.cardSettings.cardBackground.transparency,
-                        strokeWidth: this.cardSettings.cardBackground.border.width.slice(0, -2),
+                        strokeWidth: parseInt(this.cardSettings.cardBackground.border.width, 10),
                         borderColor: this.cardSettings.cardBackground.border.color,
                         borderRadius: this.cardSettings.cardBackground.border.radius
                     },
@@ -644,7 +644,7 @@ export class Visual implements IVisual {
                 objectEnum.push({
                     objectName: objectName,
                     properties: {
-                        titleFontSize: this.cardSettings.cardTitle.fontSize.slice(0, -2),
+                        titleFontSize: parseInt(this.cardSettings.cardTitle.fontSize, 10),
                         fontFamily: this.cardSettings.cardTitle.fontFamily,
                         fontColor: this.cardSettings.cardTitle.fill
                     },
@@ -655,10 +655,10 @@ export class Visual implements IVisual {
                 objectEnum.push({
                     objectName: objectName,
                     properties: {
-                        fontSize: this.cardSettings.cardInformations.fields.fontSize.slice(0, -2),
+                        fontSize: parseInt(this.cardSettings.cardInformations.fields.fontSize, 10),
                         fieldsFontFamily: this.cardSettings.cardInformations.fields.fontFamily,
                         fieldsFontColor: this.cardSettings.cardInformations.fields.fill,
-                        secFontSize: this.cardSettings.cardInformations.values.fontSize.slice(0, -2),
+                        secFontSize: parseInt(this.cardSettings.cardInformations.values.fontSize, 10),
                         valuesFontFamily: this.cardSettings.cardInformations.values.fontFamily,
                         valuesFontColor: this.cardSettings.cardInformations.values.fill,
                         valuesDisplayUnits: this.cardSettings.cardInformations.values.displayUnits
