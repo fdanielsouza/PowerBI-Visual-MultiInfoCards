@@ -235,18 +235,18 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
         cardTitle: {
             fontSize: getValue<number>(objects, 'cardsTitles', 'titleFontSize', 12) + "pt",
             fontFamily: getValue<string>(objects, 'cardsTitles', 'fontFamily', 'wf_standard-font, helvetica, arial, sans-serif'),
-            fill: getPaletteProperty('foreground', palette, getValue<string>(objects, 'cardsTitles', 'fontColor', 'black'))
+            fill: getPaletteProperty('foreground', palette, getColorString(getValue<string>(objects, 'cardsTitles', 'fontColor', 'black')))
         },
         cardInformations: {
             fields: {
                 fontSize: getValue<number>(objects, 'cardsInformations', 'fontSize', 10) + "pt",
                 fontFamily: getValue<string>(objects, 'cardsInformations', 'fieldsFontFamily', '\'Segoe UI\', wf_segoe-ui_normal, helvetica, arial, sans-serif'),
-                fill: getPaletteProperty('foreground', palette, getValue<string>(objects, 'cardsInformations', 'fieldsFontColor', '#666666'))
+                fill: getPaletteProperty('foreground', palette, getColorString(getValue<string>(objects, 'cardsInformations', 'fieldsFontColor', '#666666')))
             },
             values: {
                 fontSize: getValue<number>(objects, 'cardsInformations', 'secFontSize', 10) + "pt",
                 fontFamily: getValue<string>(objects, 'cardsInformations', 'valuesFontFamily', '\'Segoe UI\', wf_segoe-ui_normal, helvetica, arial, sans-serif'),
-                fill: getPaletteProperty('foreground', palette, getValue<string>(objects, 'cardsInformations', 'valuesFontColor', 'black')),
+                fill: getPaletteProperty('foreground', palette, getColorString(getValue<string>(objects, 'cardsInformations', 'valuesFontColor', 'black'))),
                 displayUnits: getValue<string>(objects, 'cardsInformations', 'valuesDisplayUnits', 'Auto')
             }
         },
@@ -255,7 +255,6 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
             coverHeight: getValue<number>(objects, 'cardsImages', 'coverImageHeight', 150)
         }   
     }
-
 
     let titles = dataView.categorical.categories[0];
     let formatting = titles.objects || null;
@@ -1013,4 +1012,3 @@ export class Visual implements IVisual {
         return div;
     }
 }
-
