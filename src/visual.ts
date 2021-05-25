@@ -223,7 +223,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
     let cardSettings: CardSettings = {
         cardBackground: {
             width: getValue<number>(objects, 'cards', 'cardWidth', 280),
-            fill: getPaletteProperty('background', palette, getValue<string>(objects, 'cards', 'backgroundColor', '#FFFFFF')),
+            fill: getValue<string>(objects, 'cards', 'backgroundColor', '#FFFFFF'),
             conditionalFormat: getValue<boolean>(objects, 'cards', 'conditionalFormat', false),
             transparency: getValue<number>(objects, 'cards', 'backgroundTransparency', 0),
             border: {
@@ -274,7 +274,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
             .createSelectionId();
 
         cardDataPoints.push({
-            color: color,
+            color: getPaletteProperty('background', palette, color),
             title: formatDataViewValues(titles.values[i], getColumnDataType(titles.source.type), titles.source.format, cardSettings.cardInformations.values.displayUnits),
             fields: informations.map(info => info.source.displayName),
             values: informations.map(info => formatDataViewValues(info.values[i], getColumnDataType(info.source.type), info.source.format, cardSettings.cardInformations.values.displayUnits)),
@@ -520,7 +520,6 @@ export class Visual implements IVisual {
                             )
                         );
 
-
                 // Then each of its values
                 d3.select(this)
                     .selectAll('.information-values')
@@ -534,17 +533,30 @@ export class Visual implements IVisual {
                         .attr('width', dimensions.content.inner.width)
                         .style('font-size', self.cardSettings.cardInformations.values.fontSize)
                         .style('font-family', self.cardSettings.cardInformations.values.fontFamily)
-                        .style('fill', self.cardSettings.cardInformations.values.fill)
-                        .html((value: any) => {
-                            return self.fitMultiLineLongText(
-                                value, 
+                        .style('fill', self.cardSettings.cardInformations.values.fill) 
+                        .each(function(v) {
+                            self.appendMultiLineLongText(
+                                this, 
+                                <any>v,
                                 self.cardSettings.cardInformations.values.fontFamily,
                                 self.cardSettings.cardInformations.values.fontSize,
                                 dimensions.general.cards.padding, 
                                 dimensions.content.inner.width, 
                                 valuesFontHeight
                             )
-                        });
+                        })
+                        
+                        /*
+                        .html((values:any) => {
+                            return self.fitMultiLineLongText(
+                                values, 
+                                self.cardSettings.cardInformations.values.fontFamily,
+                                self.cardSettings.cardInformations.values.fontSize,
+                                dimensions.general.cards.padding, 
+                                dimensions.content.inner.width, 
+                                valuesFontHeight
+                            )
+                        }); */
             });
 
             this.tooltipServiceWrapper.addTooltip(
@@ -836,7 +848,8 @@ export class Visual implements IVisual {
     }
 
 
-    private fitMultiLineLongText(text: string, fontFamily: string, fontSize: string, elementX: number, elementWidth: number, fontHeight: number): string {
+
+    private appendMultiLineLongText(element: SVGElement, text: string, fontFamily: string, fontSize: string, elementX: number, elementWidth: number, fontHeight: number): void {
         let textProperties: TextProperties = {
             text: text,
             fontFamily: fontFamily,
@@ -848,13 +861,15 @@ export class Visual implements IVisual {
         let maxCharsPerLine: number = Math.floor(textLength * (elementWidth / textWidth)) - 1;
         let splittedText: string[] = Visual.separateTextInLines(text, maxCharsPerLine);
 
-        let multiLineHtmlText: string = '<tspan>' + splittedText[0] + '</tspan>';
-        splittedText.slice(1).forEach((line: string) => {
-            multiLineHtmlText += '<tspan x = ' + elementX + ', dy=' + fontHeight + '>' + line + '</tspan>'
+        splittedText.forEach((line, i) => {
+            d3.select(element)
+                .append('tspan')
+                .attr('x', elementX)
+                .attr('dy', i == 0 ? 0 : fontHeight)
+                .text(line);
         });
-
-        return multiLineHtmlText;
     }
+
 
     private calculateCardTextHeight(text: string, fontFamily: string, fontSize: string): number {
         let textProperties: TextProperties = {
