@@ -445,7 +445,7 @@ export class Visual implements IVisual {
                 // Creates a background rect for each card
                 d3.select(this)
                     .selectAll('.background')
-                    .data([{color: d.color, selectionId: d.selectionId}])
+                    .data([d.color])
                     .enter()
                         .append<SVGElement>('rect')
                         .classed('background', true)
@@ -453,16 +453,16 @@ export class Visual implements IVisual {
                         .attr('y', dimensions.general.cards.margin)
                         .attr('height', dimensions.content.background.height)
                         .attr('width', dimensions.content.background.width)
-                        .style('fill', d => d.color)
+                        .style('fill', d => d)
                         .style('opacity', (1 - (self.cardSettings.cardBackground.transparency / 100)))
                         .style('stroke', self.cardSettings.cardBackground.border.color)
                         .style('stroke-width', self.cardSettings.cardBackground.border.width)
                         .attr('rx', self.cardSettings.cardBackground.border.radius);
 
                 // At the top position of the card, each title
-                d3.select(this)
+                let titles = d3.select(this)
                     .selectAll('.title')
-                    .data([{title: d.title, selectionId: d.selectionId}])
+                    .data([d.title])
                     .enter()
                         .append<SVGElement>('text')
                         .classed('title', true)
@@ -472,9 +472,9 @@ export class Visual implements IVisual {
                         .style('font-size', self.cardSettings.cardTitle.fontSize)
                         .style('font-family', self.cardSettings.cardTitle.fontFamily)
                         .style('fill', self.cardSettings.cardTitle.fill)
-                        .text(d => {
+                        .text(t => {
                             return self.fitTextInMaxWidth(
-                                d.title, 
+                                t, 
                                 self.cardSettings.cardTitle.fontFamily, 
                                 self.cardSettings.cardTitle.fontSize, 
                                 dimensions.header.titles.width
@@ -485,7 +485,7 @@ export class Visual implements IVisual {
                 if(hasImages) {
                     d3.select(this)
                         .selectAll('.image')
-                        .data([{ image: d.image, selectionId: d.selectionId }])
+                        .data([d.image])
                         .enter()
                             .append<SVGElement>('svg:image')
                             .classed('image', true)
@@ -494,7 +494,7 @@ export class Visual implements IVisual {
                             .attr('height', dimensions.header.images.height)
                             .attr('width', dimensions.header.images.width)
                             .attr('preserveAspectRatio', self.cardSettings.cardImages.mode == 'profile' ? 'xMidYMid meet' : 'xMidYMid slice')
-                            .attr('xlink:href', d => d.image);
+                            .attr('xlink:href', i => i);
                 }
 
                 // First we position each field name
@@ -534,29 +534,17 @@ export class Visual implements IVisual {
                         .style('font-size', self.cardSettings.cardInformations.values.fontSize)
                         .style('font-family', self.cardSettings.cardInformations.values.fontFamily)
                         .style('fill', self.cardSettings.cardInformations.values.fill) 
-                        .each(function(v) {
-                            self.appendMultiLineLongText(
-                                this, 
-                                <any>v,
-                                self.cardSettings.cardInformations.values.fontFamily,
-                                self.cardSettings.cardInformations.values.fontSize,
-                                dimensions.general.cards.padding, 
-                                dimensions.content.inner.width, 
-                                valuesFontHeight
-                            )
-                        })
-                        
-                        /*
-                        .html((values:any) => {
-                            return self.fitMultiLineLongText(
-                                values, 
-                                self.cardSettings.cardInformations.values.fontFamily,
-                                self.cardSettings.cardInformations.values.fontSize,
-                                dimensions.general.cards.padding, 
-                                dimensions.content.inner.width, 
-                                valuesFontHeight
-                            )
-                        }); */
+                        .each(function(values: any) {
+                                self.appendMultiLineLongText(
+                                    this, 
+                                    values,
+                                    self.cardSettings.cardInformations.values.fontFamily,
+                                    self.cardSettings.cardInformations.values.fontSize,
+                                    dimensions.general.cards.padding, 
+                                    dimensions.content.inner.width, 
+                                    valuesFontHeight
+                                )
+                        });
             });
 
             this.tooltipServiceWrapper.addTooltip(
@@ -597,9 +585,10 @@ export class Visual implements IVisual {
                 .exit()
                 .remove();
 
-            this.svg.on('contextmenu', () => {
+            cards.on('contextmenu', () => {
                 const mouseEvent: MouseEvent = d3.event as MouseEvent;
-                const eventTarget: EventTarget = mouseEvent.target;
+                const eventTarget: EventTarget = mouseEvent.currentTarget;
+
                 let dataPoint: any = d3.select(<d3.BaseType>eventTarget).datum();
 
                 this.selectionManager.showContextMenu(dataPoint ? dataPoint.selectionId : {}, {
