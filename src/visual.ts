@@ -825,7 +825,7 @@ export class Visual implements IVisual {
             newLinePositions.push(re.lastIndex)
         }
 
-        return newLinePositions;
+        return newLinePositions.map((_, i, array) => array[i] - (array[i-1] || 0));
     }
 
 
