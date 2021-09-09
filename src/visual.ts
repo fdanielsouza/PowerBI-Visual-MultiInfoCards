@@ -817,7 +817,20 @@ export class Visual implements IVisual {
     }
 
 
+    private static getNewLinePositions(text: string): number[] {
+        let re: RegExp = new RegExp(/\n/, 'gi');
+        let newLinePositions: number[] = [];
+
+        while(re.exec(text)) {
+            newLinePositions.push(re.lastIndex)
+        }
+
+        return newLinePositions;
+    }
+
+
     private static separateTextInLines(text: string, maxLineLength: number): string[] {
+        let newLinePositions = Visual.getNewLinePositions(text);
         let splittedWords: string[] = text.split(' ')
             .map((word) => word.match(new RegExp('.{1,' + maxLineLength + '}', 'g')))
             .reduce((accWords, word) => accWords.concat(word), []);
@@ -825,9 +838,10 @@ export class Visual implements IVisual {
         let buildingLine = '';
         let splittedLines = [];
         for (let word in splittedWords) {
-            if ((buildingLine + ' ' + splittedWords[word]).length > maxLineLength) {
+            if ((buildingLine + ' ' + splittedWords[word]).length > d3.min([maxLineLength, newLinePositions[0]])) {
                 splittedLines.push(buildingLine.slice(1));
                 buildingLine = '';
+                newLinePositions.shift();
             }
             buildingLine += (' ' + splittedWords[word]);
             if (parseInt(word) == splittedWords.length - 1) splittedLines.push(buildingLine.slice(1));
@@ -984,9 +998,10 @@ export class Visual implements IVisual {
             'To show up data, you need either a value field or an image',
             'You can add up to 8 measures in Values fields',
             'Multiselect cards using ctrl key',
-            'Avoid using boolean measure in values with highlight mode',
+            'Avoid using boolean measures in values with highlight mode',
             'Activate/deactivate conditional formatting under Cards pane, but set the rules in Conditional Formatting pane',
-            'If you want to use cover mode, try to get images with close dimensions for the best results'
+            'If you want to use cover mode, try to get images with close dimensions for the best results',
+            'You can insert line breaks by using UNICHAR(10) DAX function or Character.FromNumber(10) function in M'
         ];
 
         let list = document.createElement('ul');
