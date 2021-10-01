@@ -201,6 +201,19 @@ interface CardsDimensions {
     };
 }
 
+/**
+ * Class representing web url objects
+ * 
+ * @Class
+ */
+class WebUrl {
+    url: string;
+
+    constructor(url: string) {
+        this.url = url;
+    }
+}
+
 
 function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardViewModel {
     let viewModel: CardViewModel = {
@@ -208,7 +221,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
         settings: <CardSettings>{}
     }
 
-    let dataView: DataView = options.dataViews[0];
+    let dataView: DataView = options.dataViews[0]; 
     if(!dataView
         || !dataView
         || !dataView.categorical
@@ -324,6 +337,7 @@ function getPaletteProperty(
 
 function getColumnDataType(columnTypes: powerbi.ValueTypeDescriptor): string {
     if(columnTypes.bool) return 'bool';
+    if(columnTypes.text && columnTypes["categoryString"] == 'WebUrl') return 'weburl';
     if(columnTypes.text) return 'text';
     if(columnTypes.numeric) return 'numeric';
     if(columnTypes.dateTime) return 'dateTime';
@@ -346,6 +360,8 @@ function formatDataViewValues(value: any, type: string, format?: string, display
     } else if (format != null && type == 'dateTime') {
         let iValueFormatter = valueFormatter.create({ format: format });
         result = iValueFormatter.format(d3.isoParse(value));
+    } else if (type == 'weburl') {
+        result = new WebUrl(value)
     } else {
         result = value;
     }
@@ -535,15 +551,21 @@ export class Visual implements IVisual {
                         .style('font-family', self.cardSettings.cardInformations.values.fontFamily)
                         .style('fill', self.cardSettings.cardInformations.values.fill) 
                         .each(function(values: any) {
-                                self.appendMultiLineLongText(
-                                    this, 
-                                    values,
-                                    self.cardSettings.cardInformations.values.fontFamily,
-                                    self.cardSettings.cardInformations.values.fontSize,
-                                    dimensions.general.cards.padding, 
-                                    dimensions.content.inner.width, 
-                                    valuesFontHeight
-                                )
+
+                            if(values instanceof WebUrl) {
+                                values = values.url;
+                                self.listenUrl(this, values);
+                            }
+
+                            self.appendMultiLineLongText(
+                                this, 
+                                values,
+                                self.cardSettings.cardInformations.values.fontFamily,
+                                self.cardSettings.cardInformations.values.fontSize,
+                                dimensions.general.cards.padding, 
+                                dimensions.content.inner.width, 
+                                valuesFontHeight
+                            )
                         });
             });
 
@@ -914,6 +936,18 @@ export class Visual implements IVisual {
         return (highlighted ? 1 : 0.4);
     }
 
+    private listenUrl(el: SVGElement, url: string) {
+
+        el.addEventListener('click', () => {
+            let re: RegExp = new RegExp(/http.?:\/\//i);
+            url = re.test(url) ? url : 'https://' + url;
+
+            this.host.launchUrl(url)
+        }) 
+
+        el.style.textDecoration = 'underline'; 
+    }
+
 
     // Helper methods for selection, tooltips, etc
     private syncSelectionState(
@@ -952,7 +986,8 @@ export class Visual implements IVisual {
 
     private getTooltipData(value: CardDataPoint): VisualTooltipDataItem[] {
         let fields = value.fields.concat(value.tooltipFields);
-        let values = value.values.concat(value.tooltipValues);
+        let values = value.values.concat(value.tooltipValues)
+            .map(v => v instanceof WebUrl ? v.url : v);
 
         let tooltip = [];
         for(let i = 0; i < values.length; i++) {
@@ -994,14 +1029,15 @@ export class Visual implements IVisual {
         div.appendChild(GuidelinesHeader);
 
         let guidelines = [
-            'Using a field for titles is mandatory',
-            'To show up data, you need either a value field or an image',
-            'You can add up to 8 measures in Values fields',
-            'Multiselect cards using ctrl key',
-            'Avoid using boolean measures in values with highlight mode',
-            'Activate/deactivate conditional formatting under Cards pane, but set the rules in Conditional Formatting pane',
-            'If you want to use cover mode, try to get images with close dimensions for the best results',
-            'You can insert line breaks by using UNICHAR(10) DAX function or Character.FromNumber(10) function in M'
+            '⬤ Using a field for titles is mandatory',
+            '⬤ To show up data, you need either a value field or an image',
+            '⬤ You can add up to 8 measures in Values fields',
+            '⬤ Multiselect cards using ctrl key',
+            '⬤ Avoid using boolean measures in values with highlight mode',
+            '⬤ Activate/deactivate conditional formatting under Cards pane, but set the rules in Conditional Formatting pane',
+            '⬤ If you want to use cover mode, try to get images with close dimensions for the best results',
+            '⬤ You can insert line breaks by using UNICHAR(10) DAX function or Character.FromNumber(10) function in M',
+            '⬤ An information value formatted as Web URL is clickable and will take the users to the link. Use "http://" or "https://" (if you don\'t it will default to "https://")'
         ];
 
         let list = document.createElement('ul');
@@ -1010,7 +1046,7 @@ export class Visual implements IVisual {
         guidelines.forEach(r => {
             let item = document.createElement('li');
             item.setAttribute('class', 'LandingPageText');
-            item.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black')
+            item.style.color = getPaletteProperty('foreground', this.host.colorPalette, 'black');
             list.appendChild(item);
             item.textContent = r;
         });
