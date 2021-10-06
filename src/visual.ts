@@ -123,7 +123,8 @@ interface CardSettings {
     cardTitle: {
         fontSize: string,
         fontFamily: string,
-        fill: string
+        fill: string,
+        alignment: string
     };
 
     cardInformations: {
@@ -248,7 +249,8 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
         cardTitle: {
             fontSize: getValue<number>(objects, 'cardsTitles', 'titleFontSize', 12) + "pt",
             fontFamily: getValue<string>(objects, 'cardsTitles', 'fontFamily', 'wf_standard-font, helvetica, arial, sans-serif'),
-            fill: getPaletteProperty('foreground', palette, getColorString(getValue<string>(objects, 'cardsTitles', 'fontColor', 'black')))
+            fill: getPaletteProperty('foreground', palette, getColorString(getValue<string>(objects, 'cardsTitles', 'fontColor', 'black'))),
+            alignment: convertAlignmentOption(getValue<string>(objects, 'cardsTitles', 'titleAlignment', 'left'))
         },
         cardInformations: {
             fields: {
@@ -370,6 +372,19 @@ function formatDataViewValues(value: any, type: string, format?: string, display
 }
 
 
+function convertAlignmentOption(currentOption: string): string {
+    let newOption: string;
+
+    switch(currentOption) {
+        case 'left':    {newOption = 'start'; break;}
+        case 'center':  {newOption = 'middle'; break;}
+        default:        {newOption = 'end'}
+    }
+
+    return newOption;
+}
+
+
 export class Visual implements IVisual {
     private host: IVisualHost;
     private events: IVisualEventService;
@@ -485,6 +500,7 @@ export class Visual implements IVisual {
                         .attr('x', dimensions.header.titles.x)
                         .attr('y', dimensions.header.titles.y)
                         .attr('width', dimensions.header.titles.width)
+                        .attr('text-anchor', self.cardSettings.cardTitle.alignment)
                         .style('font-size', self.cardSettings.cardTitle.fontSize)
                         .style('font-family', self.cardSettings.cardTitle.fontFamily)
                         .style('fill', self.cardSettings.cardTitle.fill)
@@ -668,7 +684,8 @@ export class Visual implements IVisual {
                     properties: {
                         titleFontSize: parseInt(this.cardSettings.cardTitle.fontSize, 10),
                         fontFamily: this.cardSettings.cardTitle.fontFamily,
-                        fontColor: this.cardSettings.cardTitle.fill
+                        fontColor: this.cardSettings.cardTitle.fill,
+                        titleAlignment: this.cardSettings.cardTitle.alignment
                     },
                     selector: null
                 });
@@ -806,6 +823,21 @@ export class Visual implements IVisual {
             dimensions.header.titles.y = dimensions.general.cards.padding + titlesHeight;
             dimensions.body.informations.y = dimensions.general.cards.padding + titlesHeight + 10;
         
+        }
+
+        switch(this.cardSettings.cardTitle.alignment) {
+            case 'start': {
+                dimensions.header.titles.x = dimensions.header.titles.x;
+                break;
+            }
+            case 'middle': {
+                dimensions.header.titles.x = dimensions.header.titles.x + dimensions.header.titles.width / 2;
+                break;
+            }
+            case 'end': {
+                dimensions.header.titles.x = dimensions.header.titles.x + dimensions.header.titles.width;
+                break;
+            }
         }
        
         dimensions.content.background.height = dimensions.general.cards.height - (2 * dimensions.general.cards.margin);
