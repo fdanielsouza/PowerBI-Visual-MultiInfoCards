@@ -1109,13 +1109,13 @@ export class Visual implements IVisual {
         let guidelines = [
             '⬤ Using a field for titles is mandatory',
             '⬤ To show up data, you need either a value field or an image',
-            '⬤ You can add up to 8 measures in Values fields',
+            '⬤ You can add up to 16 measures in Values fields',
             '⬤ Multiselect cards using ctrl key',
             '⬤ Avoid using boolean measures in values with highlight mode',
-            '⬤ Activate/deactivate conditional formatting under Cards pane, but set the rules in Conditional Formatting pane',
+            '⬤ Activate/deactivate conditional formatting under Cards pane, set the rules in Conditional Formatting pane',
             '⬤ If you want to use cover mode, try to get images with close dimensions for the best results',
-            '⬤ You can insert line breaks by using UNICHAR(10) DAX function or Character.FromNumber(10) function in M',
-            '⬤ An information value formatted as Web URL is clickable and will take the users to the link. Use "http://" or "https://" (if you don\'t it will default to "https://")'
+            '⬤ Insert line breaks by using UNICHAR(10) DAX function or Character.FromNumber(10) M function',
+            '⬤ Measures formatted as Web URL are hyperlinks to their text address. Use "http://" or "https://" (if you don\'t it will default to "https://")'
         ];
 
         let list = document.createElement('ul');
