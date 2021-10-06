@@ -131,7 +131,8 @@ interface CardSettings {
         fields: {
             fontSize: string,
             fontFamily: string,
-            fill: string
+            fill: string,
+            alignment: string
         };
         values: {
             fontSize: string,
@@ -197,7 +198,13 @@ interface CardsDimensions {
         informations: {
             heights: number[],
             totalHeight: number,
-            y: number
+            y: number,
+            fields: {
+                x: number
+            },
+            values: {
+                x: number
+            }
         };
     };
 }
@@ -256,7 +263,8 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
             fields: {
                 fontSize: getValue<number>(objects, 'cardsInformations', 'fontSize', 10) + "pt",
                 fontFamily: getValue<string>(objects, 'cardsInformations', 'fieldsFontFamily', '\'Segoe UI\', wf_segoe-ui_normal, helvetica, arial, sans-serif'),
-                fill: getPaletteProperty('foreground', palette, getColorString(getValue<string>(objects, 'cardsInformations', 'fieldsFontColor', '#666666')))
+                fill: getPaletteProperty('foreground', palette, getColorString(getValue<string>(objects, 'cardsInformations', 'fieldsFontColor', '#666666'))),
+                alignment: convertAlignmentOption(getValue<string>(objects, 'cardsInformations', 'fieldsTextAlignment', 'left'))
             },
             values: {
                 fontSize: getValue<number>(objects, 'cardsInformations', 'secFontSize', 10) + "pt",
@@ -536,10 +544,11 @@ export class Visual implements IVisual {
                     .enter()
                         .append<SVGElement>('text')
                         .classed('information-fields', true)
-                        .attr('x', dimensions.general.cards.padding)
+                        .attr('x', dimensions.body.informations.fields.x)
                         .attr('y', (_, i) => dimensions.body.informations.y + ((i + 1) * fieldsFontHeight) + dimensions.body.informations.heights.slice(0, i).reduce<number>((a: number, b: number) => a + b, 0))
                         .attr('height', dimensions.content.inner.height)
                         .attr('width', dimensions.content.inner.width)
+                        .attr('text-anchor', self.cardSettings.cardInformations.fields.alignment)
                         .style('font-size', self.cardSettings.cardInformations.fields.fontSize)
                         .style('font-family', self.cardSettings.cardInformations.fields.fontFamily)
                         .style('fill', self.cardSettings.cardInformations.fields.fill)
@@ -697,6 +706,7 @@ export class Visual implements IVisual {
                         fontSize: parseInt(this.cardSettings.cardInformations.fields.fontSize, 10),
                         fieldsFontFamily: this.cardSettings.cardInformations.fields.fontFamily,
                         fieldsFontColor: this.cardSettings.cardInformations.fields.fill,
+                        fieldsTextAlignment: this.cardSettings.cardInformations.fields.alignment,
                         secFontSize: parseInt(this.cardSettings.cardInformations.values.fontSize, 10),
                         valuesFontFamily: this.cardSettings.cardInformations.values.fontFamily,
                         valuesFontColor: this.cardSettings.cardInformations.values.fill,
@@ -750,7 +760,8 @@ export class Visual implements IVisual {
             },        
             body: {
                 informations: {
-                    heights: [], totalHeight: 0, y: 0
+                    heights: [], totalHeight: 0, y: 0,
+                    fields: {x: 0}, values: {x: 0}
                 }
             }
         };
@@ -836,6 +847,21 @@ export class Visual implements IVisual {
             }
             case 'end': {
                 dimensions.header.titles.x = dimensions.header.titles.x + dimensions.header.titles.width;
+                break;
+            }
+        }
+        
+        switch(this.cardSettings.cardInformations.fields.alignment) {
+            case 'start': {
+                dimensions.body.informations.fields.x = dimensions.general.cards.padding;
+                break;
+            }
+            case 'middle': {
+                dimensions.body.informations.fields.x = dimensions.general.cards.padding + dimensions.content.inner.width / 2;
+                break;
+            }
+            case 'end': {
+                dimensions.body.informations.fields.x = dimensions.general.cards.padding + dimensions.content.inner.width;
                 break;
             }
         }

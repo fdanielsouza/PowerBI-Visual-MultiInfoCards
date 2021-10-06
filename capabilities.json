@@ -135,7 +135,7 @@
                     }
                 },
                 "titleAlignment": {
-                    "displayName": "Title Alignment",
+                    "displayName": "Title alignment",
                     "type": {
                         "formatting": {
                             "alignment": true
@@ -170,6 +170,14 @@
                             "solid": {
                                 "color": true
                             }
+                        }
+                    }
+                },
+                "fieldsTextAlignment": {
+                    "displayName": "Field names alignment",
+                    "type": {
+                        "formatting": {
+                            "alignment": true
                         }
                     }
                 },
