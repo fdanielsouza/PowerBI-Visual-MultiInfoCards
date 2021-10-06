@@ -207,6 +207,14 @@
                         }
                     }
                 },
+                "valuesTextAlignment": {
+                    "displayName": "Values text alignment",
+                    "type": {
+                        "formatting": {
+                            "alignment": true
+                        }
+                    }
+                },
                 "valuesDisplayUnits": {
                     "displayName": "Values display units",
                     "description": "Change the display units format when information is numeric",
