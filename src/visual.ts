@@ -783,7 +783,7 @@ export class Visual implements IVisual {
         
 
         // Gets the needed height to display each block of information
-        const informationHeights = this.cardDataPoints.map(p => 
+        const informationHeights = this.cardDataPoints.map(p =>
             this.calculateInformationHeights(p, this.cardSettings.cardInformations.values.fontFamily, this.cardSettings.cardInformations.values.fontSize, dimensions.content.inner.width, valuesHeight)
         );
         dimensions.body.informations.heights = d3.transpose(informationHeights).map(i => i.reduce<number>((a: number, b: number) => a > b ? a : b, 0) + 5);
@@ -1004,7 +1004,10 @@ export class Visual implements IVisual {
         information: CardDataPoint, fontFamily: string, fontSize: string, maxWidth: number, fontHeight: number
     ): any[] {
         let heights = information.values.map(
-            v => this.calculateMultiLineTextHeight(v.toString(), fontFamily, fontSize, maxWidth, fontHeight)
+            v => {
+                if(v instanceof WebUrl) v = v.url;
+                return this.calculateMultiLineTextHeight(v.toString(), fontFamily, fontSize, maxWidth, fontHeight)
+            }
         );
 
         return heights;
