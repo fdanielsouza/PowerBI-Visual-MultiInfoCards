@@ -291,7 +291,7 @@ function visualTransform(options: VisualUpdateOptions, host: IVisualHost): CardV
     
     for (let i = 0; i < titles.values.length; i++) {
         const color: string = formatting && cardSettings.cardBackground.conditionalFormat ? 
-            getColorString(<Fill>formatting[i].conditionalFormatting.backgroundColor) : 
+            getColorString(<Fill>formatting[i].condFormatting.backgroundColor) : 
             getColorString(cardSettings.cardBackground.fill);
 
         const selectionId: ISelectionId = host.createSelectionIdBuilder()
@@ -675,7 +675,7 @@ export class Visual implements IVisual {
                     selector: null
                 });
                 break;
-            case 'conditionalFormatting':
+            case 'condFormatting':
                 if(this.cardSettings.cardBackground.conditionalFormat) {
                     objectEnum.push({
                         objectName: objectName,

@@ -90,7 +90,7 @@
                 }
             }
         },
-        "conditionalFormatting": {
+        "condFormatting": {
             "displayName": "Conditional formatting",
             "properties": {
                 "backgroundColor": {
